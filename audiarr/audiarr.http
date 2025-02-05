@@ -1,0 +1,6 @@
+@audiarr_HostAddress = http://localhost:5279
+
+GET {{audiarr_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
