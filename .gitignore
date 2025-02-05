@@ -1,0 +1,55 @@
+## Ignore build outputs
+[Bb]in/
+[Oo]bj/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.ilk
+*.log
+
+## Ignore user-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Ignore Visual Studio-specific folders and files
+.vs/
+.vscode/
+.idea/
+
+## Ignore ReSharper and Rider files
+_ReSharper.Caches/
+*.sln.iml
+
+## Ignore ASP.NET Core and .NET Core specific files
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Ignore SQLite database files and related temporary files
+*.db
+*.db-shm
+*.db-wal
+
+## Ignore npm packages (if you add any front-end assets)
+node_modules/
+
+## Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+## Ignore temporary files
+*.tmp
+*.temp
+
+## Ignore coverage and testing reports (if applicable)
+*.coverage
+*.coveragexml
+TestResults/
+
+## Other files you might want to ignore (customize as needed)
+*.vspscc
+*.vssscc
+
