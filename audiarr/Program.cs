@@ -4,27 +4,26 @@ using MusicServer.Services;  // Add this namespace to access LibraryScanner
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
 
-// Register the MusicDbContext with InMemory database (or use a different database provider)
+// Add Authentication & Authorization
+builder.Services.AddAuthentication(); 
+builder.Services.AddAuthorization();
+
 builder.Services.AddDbContext<MusicDbContext>(options =>
-    options.UseInMemoryDatabase("MusicDb")  // Or replace with a real database like SQL Server
-);
-
-// Register LibraryScanner service
-builder.Services.AddScoped<LibraryScanner>();  // Change from AddSingleton to AddScoped
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<LibraryScanner>(); // Ensure LibraryScanner is registered
+builder.Services.AddLogging();
+// Load MusicLibraryPath from appsettings.json
+var musicLibraryPath = builder.Configuration.GetValue<string>("MusicLibraryPath");
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-
 app.UseHttpsRedirection();
-app.UseAuthorization();
+app.UseAuthentication();  // Ensure authentication middleware is before authorization
+app.UseAuthorization(); 
 
 app.MapControllers();
 

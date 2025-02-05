@@ -5,9 +5,17 @@ namespace MusicServer.Data
 {
     public class MusicDbContext : DbContext
     {
+        public DbSet<MusicTrack> MusicTracks { get; set; }
+
         public MusicDbContext(DbContextOptions<MusicDbContext> options) : base(options) { }
 
-        public DbSet<Track> Tracks { get; set; }
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // This fallback must match your connection string
+                optionsBuilder.UseSqlite("Data Source=musiclibrary.db");
+            }
+        }
     }
 }
-
