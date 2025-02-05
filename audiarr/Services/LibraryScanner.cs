@@ -6,41 +6,71 @@ namespace MusicServer.Services
 {
     public class LibraryScanner
     {
+        private readonly string _libraryPath;
+        private readonly ILogger<LibraryScanner> _logger;
         private readonly MusicDbContext _dbContext;
-        private readonly string _musicDirectory;
 
-        public LibraryScanner(MusicDbContext dbContext, IConfiguration config)
+        public LibraryScanner(IConfiguration config, ILogger<LibraryScanner> logger, MusicDbContext dbContext)
         {
-            _dbContext = dbContext;
-            _musicDirectory = config["MusicLibraryPath"] ?? throw new Exception("MusicLibraryPath is not set in appsettings.json");
+            _libraryPath = config.GetValue<string>("MusicLibraryPath") ?? throw new ArgumentNullException(nameof(_libraryPath));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
         public void ScanLibrary()
         {
-            var musicFiles = Directory.GetFiles(_musicDirectory, "*.flac", SearchOption.AllDirectories);
-
-            foreach (var file in musicFiles)
+            if (!Directory.Exists(_libraryPath))
             {
-                var tagFile = TagLib.File.Create(file);
+                _logger.LogError("The specified library path does not exist: {LibraryPath}", _libraryPath);
+                return;
+            }
 
-                var track = new Track
-                {
-                    Title = tagFile.Tag.Title ?? Path.GetFileNameWithoutExtension(file),
-                    Artist = tagFile.Tag.FirstPerformer ?? "Unknown Artist",
-                    Album = tagFile.Tag.Album ?? "Unknown Album",
-                    Year = (int?)tagFile.Tag.Year,
-                    FilePath = file
-                };
+            var audioFiles = Directory.GetFiles(_libraryPath, "*.*", SearchOption.AllDirectories)
+                .Where(f => f.EndsWith(".mp3") || f.EndsWith(".flac") || f.EndsWith(".wav") || f.EndsWith(".ogg"))
+                .ToArray();
 
-                // Avoid duplicate entries
-                if (!_dbContext.Tracks.Any(t => t.FilePath == file))
+            if (audioFiles.Length == 0)
+            {
+                _logger.LogInformation("No audio files found in the directory: {LibraryPath}", _libraryPath);
+                return;
+            }
+
+            foreach (var file in audioFiles)
+            {
+                try
                 {
-                    _dbContext.Tracks.Add(track);
-                    Console.WriteLine(track.ToString());
+                    var tagFile = TagLib.File.Create(file);
+
+                    var musicTrack = new MusicTrack
+                    {
+                        FilePath = file,
+                        TrackTitle = tagFile.Tag.Title,
+                        Artist = string.Join(", ", tagFile.Tag.Performers),
+                        AlbumName = tagFile.Tag.Album,
+                        AlbumArtist = string.Join(", ", tagFile.Tag.AlbumArtists),
+                        ReleaseYear = (int?)tagFile.Tag.Year,
+                        Genre = string.Join(", ", tagFile.Tag.Genres),
+                        TrackNumber = (int?)tagFile.Tag.Track,
+                        Duration = tagFile.Properties.Duration,
+                        FileFormat = Path.GetExtension(file).TrimStart('.').ToUpper(),
+                        Bitrate = tagFile.Properties.AudioBitrate,
+                        FileSize = new FileInfo(file).Length,
+                        MusicBrainzId = tagFile.Tag.MusicBrainzTrackId,
+                        ReleaseType = tagFile.Tag.Grouping, // This depends on the metadata format
+                        AlbumType = tagFile.Tag.AlbumSort, // Placeholder, adjust as needed
+                    };
+
+                    _dbContext.MusicTracks.Add(musicTrack);
+                    _logger.LogInformation("Added track: {TrackTitle} by {Artist}", musicTrack.TrackTitle, musicTrack.Artist);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("Error processing file {File}: {Message}", file, ex.Message);
                 }
             }
 
             _dbContext.SaveChanges();
+            _logger.LogInformation("Library scan complete. {TrackCount} tracks added.", audioFiles.Length);
         }
     }
 }

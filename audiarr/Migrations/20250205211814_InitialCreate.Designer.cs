@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MusicServer.Data;
 
@@ -10,54 +11,64 @@ using MusicServer.Data;
 namespace audiarr.Migrations
 {
     [DbContext(typeof(MusicDbContext))]
-    partial class MusicDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250205211814_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.1");
 
-            modelBuilder.Entity("MusicServer.Models.MusicTrack", b =>
+            modelBuilder.Entity("MusicServer.Models.Track", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("AlbumArtist")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AlbumName")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AlbumType")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Artist")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("Bitrate")
+                    b.Property<int>("Bitrate")
                         .HasColumnType("INTEGER");
 
-                    b.Property<TimeSpan?>("Duration")
+                    b.Property<TimeSpan>("Duration")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FileFormat")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("FileSize")
+                    b.Property<long>("FileSize")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Genre")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("MusicBrainzId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ReleaseType")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("ReleaseYear")
@@ -67,6 +78,7 @@ namespace audiarr.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("TrackTitle")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

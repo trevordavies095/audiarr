@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("audiarr")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+40a427f6474f40d3a6b05431661348b2f829645d")]
 [assembly: System.Reflection.AssemblyProductAttribute("audiarr")]
 [assembly: System.Reflection.AssemblyTitleAttribute("audiarr")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
