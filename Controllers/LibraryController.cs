@@ -36,6 +36,64 @@ namespace MusicServer.Controllers
             }
         }
 
+        [HttpGet("artists")]
+        public async Task<IActionResult> GetArtists()
+        {
+            try
+            {
+                // Query distinct artist names, sort ascending.
+                var artists = await _dbContext.MusicTracks
+                    .Select(t => t.Artist)
+                    .Distinct()
+                    .OrderBy(artist => artist)
+                    .ToListAsync();
+
+                return Ok(artists);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error fetching artists: {Message}", ex.Message);
+                return StatusCode(500, "An error occurred while fetching artists.");
+            }
+        }
+
+        [HttpGet("albums")]
+        public async Task<IActionResult> GetAlbums([FromQuery] string artist)
+        {
+            if (string.IsNullOrWhiteSpace(artist))
+            {
+                return BadRequest("Artist parameter is required.");
+            }
+
+            try
+            {
+                // Retrieve all tracks for the specified artist (case-insensitive match)
+                var tracksForArtist = await _dbContext.MusicTracks
+                    .Where(t => t.Artist.ToLower() == artist.ToLower())
+                    .ToListAsync();
+
+                // Group tracks by album name
+                var albums = tracksForArtist
+                    .GroupBy(t => t.AlbumName)
+                    .Select(g => new
+                    {
+                        AlbumName = g.Key,
+                        // Optionally, use the earliest release year among the tracks for the album
+                        ReleaseYear = g.Min(t => t.ReleaseYear),
+                        Tracks = g.OrderBy(t => t.TrackNumber).ToList()
+                    })
+                    .OrderBy(a => a.AlbumName) // Sort albums alphabetically
+                    .ToList();
+
+                return Ok(albums);
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError("Error fetching albums for artist {Artist}: {Message}", artist, ex.Message);
+                return StatusCode(500, "An error occurred while fetching albums.");
+            }
+        }
+
         [HttpGet("tracks")]
         public async Task<IActionResult> GetTracks([FromQuery] int page = 0, [FromQuery] int pageSize = 1000)
         {
