@@ -1,3 +1,4 @@
+# Stage 1: Build and publish the application
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -5,26 +6,26 @@ WORKDIR /src
 COPY *.csproj ./
 RUN dotnet restore "audiarr.csproj"
 
-# Copy the remaining source code and build the project
+# Copy the entire project and build it
 COPY . ./
 RUN dotnet publish "audiarr.csproj" -c Release -o /app/publish
 
-# Stage 2: Create the runtime image using the .NET 9.0 preview runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-preview AS runtime
+# Stage 2: Runtime Image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
 # Set the environment variable (can be overridden at runtime)
 ENV MUSIC_LIBRARY_PATH="/music"
 
-# Copy the published output from the build stage
+# Copy the published application
 COPY --from=build /app/publish .
 
 # Ensure appsettings.json is copied explicitly
 COPY appsettings.json /app/appsettings.json
 
-# Expose ports as needed
+# Expose necessary ports
 EXPOSE 80
 EXPOSE 443
 
-# Set the entry point to run the application
+# Run the application
 ENTRYPOINT ["dotnet", "audiarr.dll"]
