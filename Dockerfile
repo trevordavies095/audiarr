@@ -4,11 +4,11 @@ WORKDIR /src
 
 # Copy the project file and restore dependencies
 COPY *.csproj ./
-RUN dotnet restore "Audiarr.csproj"
+RUN dotnet restore "audiarr.csproj"
 
 # Copy the remaining source code and build the project
 COPY . ./
-RUN dotnet publish "Audiarr.csproj" -c Release -o /app/publish
+RUN dotnet publish "audiarr.csproj" -c Release -o /app/publish
 
 # Stage 2: Create the runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
@@ -18,4 +18,4 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 # Set the entry point to run the application
-ENTRYPOINT ["dotnet", "Audiarr.dll"]
+ENTRYPOINT ["dotnet", "audiarr.dll"]
