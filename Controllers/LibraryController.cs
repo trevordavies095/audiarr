@@ -36,13 +36,21 @@ namespace MusicServer.Controllers
             }
         }
 
-        // GET endpoint to return the list of tracks
         [HttpGet("tracks")]
-        public async Task<IActionResult> GetTracks()
+        public async Task<IActionResult> GetTracks([FromQuery] int page = 0, [FromQuery] int pageSize = 1000)
         {
             try
             {
-                var tracks = await _dbContext.MusicTracks.ToListAsync();
+                // Sort the tracks using your desired criteria (e.g., artist, releaseYear, trackNumber)
+                var tracks = await _dbContext.MusicTracks
+                    .OrderBy(t => t.Artist)
+                    .ThenBy(t => t.ReleaseYear)
+                    .ThenBy(t => t.TrackNumber)
+                    .Skip(page * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+                
+                // Optionally, return the total count in headers or in a wrapper object
                 return Ok(tracks);
             }
             catch (Exception ex)
@@ -51,5 +59,6 @@ namespace MusicServer.Controllers
                 return StatusCode(500, "An error occurred while fetching tracks.");
             }
         }
+
     }
 }
