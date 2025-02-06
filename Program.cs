@@ -38,12 +38,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-
-
-
-// Load MusicLibraryPath from appsettings.json
-var musicLibraryPath = builder.Configuration.GetValue<string>("MusicLibraryPath");
-
 var app = builder.Build();
 
 // Then in the middleware pipeline:
