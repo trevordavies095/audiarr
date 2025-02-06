@@ -17,15 +17,15 @@ WORKDIR /app
 # Set the environment variable (can be overridden at runtime)
 ENV MUSIC_LIBRARY_PATH="/music"
 
+# Set the environment variable to listen on port 5279
+ENV ASPNETCORE_URLS=http://+:5279
+EXPOSE 5279
+
 # Copy the published application
 COPY --from=build /app/publish .
 
 # Ensure appsettings.json is copied explicitly
 COPY appsettings.json /app/appsettings.json
-
-# Expose necessary ports
-EXPOSE 80
-EXPOSE 443
 
 # Run the application
 ENTRYPOINT ["dotnet", "audiarr.dll"]
