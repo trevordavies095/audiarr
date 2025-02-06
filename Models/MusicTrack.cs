@@ -1,9 +1,16 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace MusicServer.Models
 {
+
+    [Index(nameof(Artist))]
+    [Index(nameof(Artist), nameof(AlbumName))]
+    [Index(nameof(AlbumName), nameof(TrackNumber))]
+    [Index(nameof(FilePath))]
+    [Index(nameof(Id))]
     public class MusicTrack
     {
         [Key]
