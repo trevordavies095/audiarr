@@ -1,8 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using MusicServer.Data;
 using MusicServer.Services;  // Add this namespace to access LibraryScanner
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load environment variables
+var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH");
+
+
+if (string.IsNullOrEmpty(musicLibraryPath))
+{
+    Console.WriteLine("Warning: MUSIC_LIBRARY_PATH is not set. Using default path (/music).");
+    musicLibraryPath = "/music"; // Default path (modify as needed)
+}
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -42,5 +53,8 @@ app.UseAuthentication();  // Ensure authentication middleware is before authoriz
 app.UseAuthorization(); 
 
 app.MapControllers();
+
+// Log the configured music library path
+Console.WriteLine($"Music Library Path: {musicLibraryPath}");
 
 app.Run();
