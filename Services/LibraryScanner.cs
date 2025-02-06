@@ -12,7 +12,7 @@ namespace MusicServer.Services
 
         public LibraryScanner(IConfiguration config, ILogger<LibraryScanner> logger, MusicDbContext dbContext)
         {
-            _libraryPath = config.GetValue<string>("MusicLibraryPath") ?? throw new ArgumentNullException(nameof(_libraryPath));
+            _libraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/music";
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
