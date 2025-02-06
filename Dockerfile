@@ -1,5 +1,4 @@
-# Stage 1: Build and publish the application using the .NET 9.0 preview image
-FROM mcr.microsoft.com/dotnet/sdk:9.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy the project file and restore dependencies
