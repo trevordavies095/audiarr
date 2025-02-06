@@ -40,6 +40,22 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// ** Apply Migrations Automatically **
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var dbContext = services.GetRequiredService<MusicDbContext>();
+        dbContext.Database.Migrate();  // 🚀 Ensures migrations are applied
+        Console.WriteLine("✅ Database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️ Error applying migrations: {ex.Message}");
+    }
+}
+
 // Then in the middleware pipeline:
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
