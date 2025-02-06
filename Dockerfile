@@ -14,6 +14,9 @@ RUN dotnet publish "audiarr.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-preview AS runtime
 WORKDIR /app
 
+# Set the environment variable (can be overridden at runtime)
+ENV MUSIC_LIBRARY_PATH="/music"
+
 # Copy the published output from the build stage
 COPY --from=build /app/publish .
 
