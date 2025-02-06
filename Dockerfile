@@ -20,6 +20,9 @@ ENV MUSIC_LIBRARY_PATH="/music"
 # Copy the published output from the build stage
 COPY --from=build /app/publish .
 
+# Ensure appsettings.json is copied explicitly
+COPY appsettings.json /app/appsettings.json
+
 # Expose ports as needed
 EXPOSE 80
 EXPOSE 443
