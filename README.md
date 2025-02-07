@@ -32,14 +32,83 @@ Audiarr is a selfhostable, lightweight music server that enables users to listen
 
 1. Run the Server
 Use Docker Compose to start the Audiarr server:
-`docker-compose up -d`
+```bash
+docker-compose up -d
+```
 
-2. Scan Your Music Library
+3. Scan Your Music Library
 After starting the server, initiate a library scan to index your music files:
-`curl -X POST http://localhost:5279/api/library/scan`
+```bash
+curl -X POST http://localhost:5279/api/library/scan
+```
 
-3. Connect to the Server (Optional: Using Audiarr Client)
+5. Connect to the Server (Optional: Using Audiarr Client)
 If you're using Audiarr Client:
 - Navigate to the client in your browser
 - Input the server URL (e.g., http://localhost:5279)
 - Start browsing and playing your music!
+
+## API Endpoints
+### Library Management
+#### **Initiate a Library Scan**  
+Scans the music directory for new tracks and updates the database.  
+```http
+POST /api/library/scan
+```
+Example:
+```bash
+curl -X POST http://localhost:5279/api/library/scan
+```
+
+#### **Get All Tracks**
+Returns a list of all tracks in the library.
+```http
+GET /api/library/tracks
+```
+Example:
+```bash
+curl -X GET http://localhost:5279/api/library/tracks
+```
+
+#### **Get All Artists**
+Returns a list of all unique artists in the library, sorted alphabetically.
+```http
+GET /api/library/tracks
+```
+Example:
+```bash
+curl -X GET http://localhost:5279/api/library/artists
+```
+
+#### **Get Albums by Artist**
+Returns all albums for a given artist.
+```http
+GET /api/library/albums?artist={artist_name}
+```
+Example:
+```bash
+curl -X GET "http://localhost:5279/api/library/albums?artist=Radiohead"
+```
+
+### Server Settings
+#### **Get Server Name**
+Returns the server's configured name.
+```http
+GET /api/settings/server-name
+```
+Example:
+```bash
+curl -X GET http://localhost:5279/api/settings/server-name
+```
+
+
+### Streaming
+#### **Stream a Track**
+Streams a specific track by ID.
+```http
+GET /api/stream/{track_id}
+```
+Example:
+```bash
+curl -X GET http://localhost:5279/api/stream/12345
+```
