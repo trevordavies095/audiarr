@@ -43,9 +43,14 @@ namespace MusicServer.Controllers
             {
                 // Query distinct artist names, sort ascending.
                 var artists = await _dbContext.MusicTracks
-                    .Select(t => t.Artist)
-                    .Distinct()
-                    .OrderBy(artist => artist)
+                    .GroupBy(track => track.AlbumArtist) // Group by artist
+                    .Select(group => new
+                    {
+                        name = group.Key,
+                        albumCount = group.Select(track => track.AlbumName).Distinct().Count(),
+                        trackCount = group.Count()
+                    })
+                    .OrderBy(artist => artist.name) // Sort alphabetically
                     .ToListAsync();
 
                 return Ok(artists);
