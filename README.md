@@ -27,3 +27,19 @@ Audiarr is a selfhostable, lightweight music server that enables users to listen
   
 - **Basic Client:**  
   A rudimentary React-based [client](https://github.com/trevordavies095/audiarr-client) is available for testing purposes. This client allows you to interact with the server and validate its features. A more fully featured, polished UI may be developed in the future, but for now, the emphasis remains on the server’s core capabilities.
+
+## Get Started
+
+1. Run the Server
+Use Docker Compose to start the Audiarr server:
+`docker-compose up -d`
+
+2. Scan Your Music Library
+After starting the server, initiate a library scan to index your music files:
+`curl -X POST http://localhost:5279/api/library/scan`
+
+3. Connect to the Server (Optional: Using Audiarr Client)
+If you're using Audiarr Client:
+- Navigate to the client in your browser
+- Input the server URL (e.g., http://localhost:5279)
+- Start browsing and playing your music!
