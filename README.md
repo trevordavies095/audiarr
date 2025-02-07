@@ -90,6 +90,16 @@ Example:
 curl -X GET "http://localhost:5279/api/library/albums?artist=Radiohead"
 ```
 
+#### **Get Tracks from a Specific Album**  
+Returns all tracks from a given album by an artist.  
+```http
+GET /api/library/tracks?artist={artist_name}&album={album_name}
+```
+Example:
+```bash
+curl -X GET "http://localhost:5279/api/library/tracks?artist=Radiohead&album=In%20Rainbows"
+```
+
 ### Server Settings
 #### **Get Server Name**
 Returns the server's configured name.
