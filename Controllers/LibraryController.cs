@@ -58,32 +58,31 @@ namespace MusicServer.Controllers
         }
 
         [HttpGet("albums")]
-        public async Task<IActionResult> GetAlbums([FromQuery] string artist)
+        public async Task<IActionResult> GetAlbums([FromQuery] string? artist = null)
         {
-            if (string.IsNullOrWhiteSpace(artist))
-            {
-                return BadRequest("Artist parameter is required.");
-            }
-
             try
             {
-                // Retrieve all tracks for the specified artist (case-insensitive match)
-                var tracksForArtist = await _dbContext.MusicTracks
-                    .Where(t => t.Artist.ToLower() == artist.ToLower())
-                    .ToListAsync();
+                var query = _dbContext.MusicTracks.AsQueryable();
 
-                // Group tracks by album name
-                var albums = tracksForArtist
-                    .GroupBy(t => t.AlbumName)
-                    .Select(g => new
+                // Apply filter if an artist parameter is provided
+                if (!string.IsNullOrEmpty(artist))
+                {
+                    query = query.Where(track => track.AlbumArtist.ToLower().Trim() == artist.ToLower().Trim());
+                }
+
+                var albums = await query
+                    .GroupBy(track => new { track.AlbumName, track.AlbumArtist, track.ReleaseYear })
+                    .Select(group => new
                     {
-                        AlbumName = g.Key,
-                        // Optionally, use the earliest release year among the tracks for the album
-                        ReleaseYear = g.Min(t => t.ReleaseYear),
-                        Tracks = g.OrderBy(t => t.TrackNumber).ToList()
+                        albumName = group.Key.AlbumName,
+                        artist = group.Key.AlbumArtist,
+                        releaseYear = group.Key.ReleaseYear,
+                        trackCount = group.Count()
                     })
-                    .OrderBy(a => a.AlbumName) // Sort albums alphabetically
-                    .ToList();
+                    .OrderBy(album => album.artist)  // Sort by artist name
+                    .ThenBy(album => album.releaseYear) // Sort by release year
+                    .ThenBy(album => album.albumName) // Sort by album name
+                    .ToListAsync();
 
                 return Ok(albums);
             }
