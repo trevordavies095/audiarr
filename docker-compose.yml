@@ -1,0 +1,8 @@
+services:
+    audiarr-server:
+        ports:
+            - 5279:5279
+        volumes:
+            - /mnt/Media/Music:/music
+        container_name: audiarr-server
+        image: audiarr-server
