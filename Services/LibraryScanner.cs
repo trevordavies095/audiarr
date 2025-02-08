@@ -103,22 +103,23 @@ namespace MusicServer.Services
                         _dbContext.SaveChanges();
                     }
 
-                    // Check if album already exists under the correct Album Artist
+                    // Check if the album already exists before inserting
                     var album = _dbContext.Albums
-                        .FirstOrDefault(al => al.Name == albumName && al.ArtistId == albumArtist.Id);
+                        .FirstOrDefault(a => a.Name == albumName && a.ArtistId == artist.Id);
 
                     if (album == null)
                     {
                         album = new Album
                         {
                             Name = albumName,
-                            ArtistId = albumArtist.Id,
+                            ArtistId = artist.Id,
                             ReleaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null,
                             Genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre",
-                            CoverArtUrl = string.IsNullOrEmpty(coverArtPath) ? "" : coverArtPath // Use extracted cover art
+                            CoverArtUrl = coverArtPath // Ensure this is set correctly
                         };
+
                         _dbContext.Albums.Add(album);
-                        _dbContext.SaveChanges();
+                        _dbContext.SaveChanges(); // Save to ensure the ID is assigned
                     }
 
                     // 7️ Insert Track
