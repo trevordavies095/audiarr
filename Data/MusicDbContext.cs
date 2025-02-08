@@ -27,19 +27,6 @@ namespace MusicServer.Data
             modelBuilder.Entity<ServerSettings>().HasData(new ServerSettings { Id = 1, ServerName = "Audiarr" });
 
             base.OnModelCreating(modelBuilder);
-
-            // 🔹 Enforce Unique Constraints
-            modelBuilder.Entity<Artist>()
-                .HasIndex(a => a.Name)
-                .IsUnique();
-
-            modelBuilder.Entity<Album>()
-                .HasIndex(a => new { a.Name, a.ArtistId })
-                .IsUnique();
-
-            modelBuilder.Entity<Track>()
-                .HasIndex(t => new { t.Title, t.AlbumId, t.ArtistId })
-                .IsUnique();
         }
     }
 }

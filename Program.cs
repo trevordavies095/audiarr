@@ -12,7 +12,7 @@ var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH");
 if (string.IsNullOrEmpty(musicLibraryPath))
 {
     Console.WriteLine("Warning: MUSIC_LIBRARY_PATH is not set. Using default path (/music).");
-    musicLibraryPath = "/music"; // Default path (modify as needed)
+    musicLibraryPath = "/Volumes/Backup/Media/Music"; // Default path (modify as needed)
 }
 
 // Add services to the container
