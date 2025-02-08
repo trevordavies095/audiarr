@@ -26,6 +26,43 @@ namespace MusicServer.Data
             // Ensure only one row exists in ServerSettings (enforce single settings record)
             modelBuilder.Entity<ServerSettings>().HasData(new ServerSettings { Id = 1, ServerName = "Audiarr" });
 
+            modelBuilder.Entity<Artist>()
+            .HasIndex(a => a.Name)
+            .HasDatabaseName("idx_artists_name");
+
+        modelBuilder.Entity<Artist>()
+            .HasIndex(a => a.SortName)
+            .HasDatabaseName("idx_artists_sortname");
+
+        modelBuilder.Entity<Album>()
+            .HasIndex(a => new { a.Name, a.ArtistId })
+            .IsUnique()
+            .HasDatabaseName("idx_albums_name_artist");
+
+        modelBuilder.Entity<Album>()
+            .HasIndex(a => a.ReleaseYear)
+            .HasDatabaseName("idx_albums_releaseyear");
+
+        modelBuilder.Entity<Track>()
+            .HasIndex(t => t.AlbumId)
+            .HasDatabaseName("idx_tracks_album");
+
+        modelBuilder.Entity<Track>()
+            .HasIndex(t => t.ArtistId)
+            .HasDatabaseName("idx_tracks_artist");
+
+        modelBuilder.Entity<Track>()
+            .HasIndex(t => t.FilePath)
+            .HasDatabaseName("idx_tracks_filename");
+
+        modelBuilder.Entity<Track>()
+            .HasIndex(t => t.Title)
+            .HasDatabaseName("idx_tracks_title");
+
+        modelBuilder.Entity<Track>()
+            .HasIndex(t => t.Id)
+            .HasDatabaseName("idx_tracks_stream");
+
             base.OnModelCreating(modelBuilder);
         }
     }
