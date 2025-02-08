@@ -1,6 +1,8 @@
 using TagLib;
 using MusicServer.Data;
 using MusicServer.Models;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace MusicServer.Services
 {
@@ -105,7 +107,9 @@ namespace MusicServer.Services
 
                     // Check if the album already exists before inserting
                     var album = _dbContext.Albums
+                        .AsNoTracking()  // Prevents EF from tracking the entity, avoiding duplication issues
                         .FirstOrDefault(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
+
 
                     if (album == null)
                     {
@@ -113,15 +117,19 @@ namespace MusicServer.Services
                         {
                             Name = albumName,
                             ArtistId = albumArtist.Id,
-                            ReleaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null,
-                            Genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre",
-                            CoverArtUrl = coverArtPath // Ensure this is set correctly
+                            ReleaseYear = releaseYear,
+                            Genre = genre,
+                            CoverArtUrl = coverArtPath
                         };
 
                         _dbContext.Albums.Add(album);
-                        _dbContext.SaveChanges(); // Save to ensure the ID is assigned
+                        _dbContext.SaveChanges(); // Save changes to assign an ID
                     }
-
+                    else
+                    {
+                        // Ensure the existing album ID is used
+                        album = _dbContext.Albums.First(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
+                    }
 
                     // 7️ Insert Track
                     var track = new Track
