@@ -14,7 +14,7 @@ namespace MusicServer.Services
 
         public LibraryScanner(IConfiguration config, ILogger<LibraryScanner> logger, MusicDbContext dbContext)
         {
-            _libraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/music";
+            _libraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/Volumes/Backup/Media/Music";
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
@@ -63,7 +63,11 @@ namespace MusicServer.Services
                     long fileSize = new FileInfo(file).Length;
 
                     // 5️⃣ Insert/Get Artist (using Album Artist)
-                    var albumArtist = _dbContext.Artists.FirstOrDefault(a => a.Name == albumArtistName);
+                    var albumArtist = _dbContext.Artists
+                        .AsEnumerable() // Switch to LINQ to Objects
+                        .FirstOrDefault(a => string.Equals(a.Name, albumArtistName, StringComparison.OrdinalIgnoreCase));
+
+
                     if (albumArtist == null)
                     {
                         albumArtist = new Artist
@@ -71,9 +75,22 @@ namespace MusicServer.Services
                             Name = albumArtistName,
                             SortName = GetSortName(albumArtistName)
                         };
-                        _dbContext.Artists.Add(albumArtist);
-                        _dbContext.SaveChanges();
+
+                        try
+                        {
+                            _dbContext.Artists.Add(albumArtist);
+                            _dbContext.SaveChanges();
+                        }
+                        catch (DbUpdateException ex) // Handle race conditions
+                        {
+                            _dbContext.Entry(albumArtist).State = EntityState.Detached; // Avoid tracking duplicate entity
+                            albumArtist = _dbContext.Artists.AsEnumerable().FirstOrDefault(a => string.Equals(a.Name, albumArtistName, StringComparison.OrdinalIgnoreCase));
+
+                            if (albumArtist == null) // If still null, rethrow the error
+                                throw;
+                        }
                     }
+
 
                     // 6️⃣ Insert/Get Album
                     var album = _dbContext.Albums
