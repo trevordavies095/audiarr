@@ -78,22 +78,10 @@ namespace MusicServer.Services
                     // Normalize the album artist name to prevent duplicates
                     var normalizedAlbumArtist = albumArtistName.Trim();
                     
-                    // Check if the artist already exists
-                    var albumArtist = _dbContext.Artists.FirstOrDefault(a => a.Name == normalizedAlbumArtist);
-                    if (albumArtist == null)
-                    {
-                        albumArtist = new Artist
-                        {
-                            Name = normalizedAlbumArtist,
-                            SortName = GetSortName(normalizedAlbumArtist) // e.g., "Weeknd, The"
-                        };
-                        _dbContext.Artists.Add(albumArtist);
-                        _dbContext.SaveChanges();
-                    }
-
 
                     // 6️ Insert or get Album
-                    // Ensure we get or create a single artist for the album artist
+                    // Check if the artist already exists
+                    var albumArtist = _dbContext.Artists.FirstOrDefault(a => a.Name == albumArtistName);
                     if (albumArtist == null)
                     {
                         albumArtist = new Artist
@@ -102,12 +90,16 @@ namespace MusicServer.Services
                             SortName = GetSortName(albumArtistName)
                         };
                         _dbContext.Artists.Add(albumArtist);
-                        _dbContext.SaveChanges();
+                        _dbContext.SaveChanges(); // Save changes to assign an ID
+                    }
+
+                    if (tagFile.Tag.AlbumArtists.Length > 1 || albumArtistName.ToLower().Contains("various"))
+                    {
+                        albumArtistName = "Various Artists";
                     }
 
                     // Check if the album already exists before inserting
                     var album = _dbContext.Albums
-                        .AsNoTracking()  // Prevents EF from tracking the entity, avoiding duplication issues
                         .FirstOrDefault(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
 
 
@@ -116,7 +108,7 @@ namespace MusicServer.Services
                         album = new Album
                         {
                             Name = albumName,
-                            ArtistId = albumArtist.Id,
+                            ArtistId = albumArtist.Id, // Ensure this is using the correct album artist
                             ReleaseYear = releaseYear,
                             Genre = genre,
                             CoverArtUrl = coverArtPath
@@ -124,11 +116,6 @@ namespace MusicServer.Services
 
                         _dbContext.Albums.Add(album);
                         _dbContext.SaveChanges(); // Save changes to assign an ID
-                    }
-                    else
-                    {
-                        // Ensure the existing album ID is used
-                        album = _dbContext.Albums.First(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
                     }
 
                     // 7️ Insert Track
