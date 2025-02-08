@@ -5,8 +5,10 @@ namespace MusicServer.Data
 {
     public class MusicDbContext : DbContext
     {
-        public DbSet<MusicTrack> MusicTracks { get; set; }
         public DbSet<ServerSettings> ServerSettings { get; set; }
+        public DbSet<Artist> Artists { get; set; }
+        public DbSet<Album> Albums { get; set; }
+        public DbSet<Track> Tracks { get; set; }
 
         public MusicDbContext(DbContextOptions<MusicDbContext> options) : base(options) { }
 
@@ -23,6 +25,21 @@ namespace MusicServer.Data
         {
             // Ensure only one row exists in ServerSettings (enforce single settings record)
             modelBuilder.Entity<ServerSettings>().HasData(new ServerSettings { Id = 1, ServerName = "Audiarr" });
+
+            base.OnModelCreating(modelBuilder);
+
+            // 🔹 Enforce Unique Constraints
+            modelBuilder.Entity<Artist>()
+                .HasIndex(a => a.Name)
+                .IsUnique();
+
+            modelBuilder.Entity<Album>()
+                .HasIndex(a => new { a.Name, a.ArtistId })
+                .IsUnique();
+
+            modelBuilder.Entity<Track>()
+                .HasIndex(t => new { t.Title, t.AlbumId, t.ArtistId })
+                .IsUnique();
         }
     }
 }

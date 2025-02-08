@@ -42,15 +42,16 @@ namespace MusicServer.Controllers
             try
             {
                 // Query distinct artist names, sort ascending.
-                var artists = await _dbContext.MusicTracks
-                    .GroupBy(track => track.AlbumArtist) // Group by artist
-                    .Select(group => new
+                var artists = await _dbContext.Artists
+                    .Select(a => new
                     {
-                        name = group.Key,
-                        albumCount = group.Select(track => track.AlbumName).Distinct().Count(),
-                        trackCount = group.Count()
+                        name = a.Name,
+                        id = a.Id,
+                        sortName = a.SortName,
+                        albumCount = _dbContext.Albums.Count(al => al.ArtistId == a.Id),
+                        trackCount = _dbContext.Tracks.Count(t => t.ArtistId == a.Id)
                     })
-                    .OrderBy(artist => artist.name) // Sort alphabetically
+                    .OrderBy(a => a.sortName)
                     .ToListAsync();
 
                 return Ok(artists);
@@ -63,57 +64,81 @@ namespace MusicServer.Controllers
         }
 
         [HttpGet("albums")]
-        public async Task<IActionResult> GetAlbums([FromQuery] string? artist = null)
+        public async Task<IActionResult> GetAlbums([FromQuery] int? artistId = null)
         {
             try
             {
-                var query = _dbContext.MusicTracks.AsQueryable();
+                var query = _dbContext.Albums.AsQueryable();
 
-                // Apply filter if an artist parameter is provided
-                if (!string.IsNullOrEmpty(artist))
+                if (artistId.HasValue)
                 {
-                    query = query.Where(track => track.AlbumArtist.ToLower().Trim() == artist.ToLower().Trim());
+                    query = query.Where(album => album.ArtistId == artistId.Value);
                 }
 
                 var albums = await query
-                    .GroupBy(track => new { track.AlbumName, track.AlbumArtist, track.ReleaseYear })
-                    .Select(group => new
+                    .Select(album => new
                     {
-                        albumName = group.Key.AlbumName,
-                        artist = group.Key.AlbumArtist,
-                        releaseYear = group.Key.ReleaseYear,
-                        trackCount = group.Count()
+                        albumId = album.Id,
+                        albumName = album.Name,
+                        albumArtist = _dbContext.Artists.Where(a => a.Id == album.ArtistId).Select(a => a.Name).FirstOrDefault(),
+                        releaseYear = album.ReleaseYear,
+                        genre = album.Genre,
+                        coverArtUrl = album.CoverArtUrl,
+                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id)
                     })
-                    .OrderBy(album => album.artist)  // Sort by artist name
-                    .ThenBy(album => album.releaseYear) // Sort by release year
-                    .ThenBy(album => album.albumName) // Sort by album name
+                    .OrderBy(a => a.albumArtist)
+                    .ThenBy(a => a.releaseYear)
                     .ToListAsync();
 
                 return Ok(albums);
             }
             catch (System.Exception ex)
             {
-                _logger.LogError("Error fetching albums for artist {Artist}: {Message}", artist, ex.Message);
+                _logger.LogError("Error fetching albums for artist {Artist}: {Message}", artistId, ex.Message);
                 return StatusCode(500, "An error occurred while fetching albums.");
             }
         }
 
         [HttpGet("tracks")]
-        public async Task<IActionResult> GetTracks([FromQuery] int page = 0, [FromQuery] int pageSize = 1000)
+        public async Task<IActionResult> GetTracks([FromQuery] int albumId)
         {
             try
             {
-                // Sort the tracks using your desired criteria (e.g., artist, releaseYear, trackNumber)
-                var tracks = await _dbContext.MusicTracks
-                    .OrderBy(t => t.Artist)
-                    .ThenBy(t => t.ReleaseYear)
-                    .ThenBy(t => t.TrackNumber)
-                    .Skip(page * pageSize)
-                    .Take(pageSize)
+                var album = await _dbContext.Albums
+                    .Where(a => a.Id == albumId)
+                    .Select(a => new
+                    {
+                        albumId = a.Id,
+                        albumName = a.Name,
+                        albumArtist = _dbContext.Artists.Where(art => art.Id == a.ArtistId).Select(art => art.Name).FirstOrDefault(),
+                        releaseYear = a.ReleaseYear,
+                        genre = a.Genre,
+                        coverArtUrl = a.CoverArtUrl,
+                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == a.Id)
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (album == null)
+                    return NotFound("Album not found");
+
+                var tracks = await _dbContext.Tracks
+                    .Where(t => t.AlbumId == albumId)
+                    .Select(t => new
+                    {
+                        id = t.Id,
+                        trackTitle = t.Title,
+                        artist = _dbContext.Artists.Where(a => a.Id == t.ArtistId).Select(a => a.Name).FirstOrDefault(),
+                        trackNumber = t.TrackNumber,
+                        duration = t.Duration,
+                        fileFormat = t.FileFormat,
+                        bitrate = t.Bitrate,
+                        fileSize = t.FileSize,
+                        streamUrl = $"/api/music/stream/{t.Id}"
+                    })
+                    .OrderBy(t => t.trackNumber)
                     .ToListAsync();
-                
-                // Optionally, return the total count in headers or in a wrapper object
-                return Ok(tracks);
+
+                return Ok(new { album, tracks });
             }
             catch (Exception ex)
             {
