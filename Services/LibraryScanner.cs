@@ -81,20 +81,19 @@ namespace MusicServer.Services
 
                     if (album == null)
                     {
-                        string coverArtPath = GetCoverArtPath(file);
-
                         album = new Album
                         {
                             Name = albumName,
                             ArtistId = albumArtist.Id,
                             ReleaseYear = releaseYear,
                             Genre = genre,
-                            CoverArtUrl = coverArtPath
+                            CoverArtUrl = GetCoverArtPath(file)
                         };
 
                         _dbContext.Albums.Add(album);
                         _dbContext.SaveChanges();
                     }
+
 
                     // 7️⃣ Insert Track
                     var track = new Track
