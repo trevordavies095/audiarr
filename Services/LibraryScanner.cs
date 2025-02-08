@@ -105,14 +105,14 @@ namespace MusicServer.Services
 
                     // Check if the album already exists before inserting
                     var album = _dbContext.Albums
-                        .FirstOrDefault(a => a.Name == albumName && a.ArtistId == artist.Id);
+                        .FirstOrDefault(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
 
                     if (album == null)
                     {
                         album = new Album
                         {
                             Name = albumName,
-                            ArtistId = artist.Id,
+                            ArtistId = albumArtist.Id,
                             ReleaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null,
                             Genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre",
                             CoverArtUrl = coverArtPath // Ensure this is set correctly
