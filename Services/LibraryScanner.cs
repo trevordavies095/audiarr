@@ -25,59 +25,118 @@ namespace MusicServer.Services
                 return;
             }
 
-            // 1. Get all audio files from the file system.
-            // You can adjust the filter to include other formats as needed.
+            // 1️ Get all audio files
             var audioFiles = Directory.GetFiles(_libraryPath, "*.*", SearchOption.AllDirectories)
-                                      .Where(f => f.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-                                               || f.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
-                                               || f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
-                                               || f.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
-                                      .ToList();
+                                    .Where(f => f.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
+                                            || f.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
+                                            || f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                                            || f.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
 
-            // 2. Get the list of file paths currently in the database.
-            var dbTracks = _dbContext.MusicTracks.ToList();
+            // 2️ Get database records
+            var dbTracks = _dbContext.Tracks.ToList();
             var dbFilePaths = dbTracks.Select(t => t.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            // 3. Determine new files (present in file system but not in the database).
+            // 3️ Determine new and removed files
             var newFiles = audioFiles.Where(file => !dbFilePaths.Contains(file)).ToList();
-
-            // 4. Determine removed files (present in the database but missing from file system).
             var audioFilesSet = audioFiles.ToHashSet(StringComparer.OrdinalIgnoreCase);
             var removedTracks = dbTracks.Where(track => !audioFilesSet.Contains(track.FilePath)).ToList();
 
             _logger.LogInformation("Found {NewCount} new files and {RemovedCount} removed files.",
                 newFiles.Count, removedTracks.Count);
 
-            // 5. Process and add new files.
+            // 4️ Process new files
             foreach (var file in newFiles)
             {
                 try
                 {
                     var tagFile = TagLib.File.Create(file);
 
-                    var track = new MusicTrack
+                    // Extract metadata
+                    string trackTitle = string.IsNullOrEmpty(tagFile.Tag.Title) ? Path.GetFileNameWithoutExtension(file) : tagFile.Tag.Title;
+                    string artistName = tagFile.Tag.Performers.FirstOrDefault() ?? "Unknown Artist";
+                    string albumName = tagFile.Tag.Album ?? "Unknown Album";
+                    string albumArtistName = tagFile.Tag.AlbumArtists.FirstOrDefault() ?? artistName;
+                    int? releaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null;
+                    string genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre";
+                    int? trackNumber = tagFile.Tag.Track > 0 ? (int?)tagFile.Tag.Track : null;
+                    string fileFormat = Path.GetExtension(file).TrimStart('.').ToUpper();
+                    int bitrate = tagFile.Properties.AudioBitrate;
+                    long fileSize = new FileInfo(file).Length;
+                    // Extract cover art path (look for common cover image files)
+                    var albumDirectory = Path.GetDirectoryName(file);
+                    var coverArtPath = Directory.GetFiles(albumDirectory, "cover.*").FirstOrDefault() ??
+                                    Directory.GetFiles(albumDirectory, "folder.*").FirstOrDefault() ??
+                                    Directory.GetFiles(albumDirectory, "*.jpg").FirstOrDefault() ??
+                                    Directory.GetFiles(albumDirectory, "*.png").FirstOrDefault() ??
+                                    "";  // Default to empty string if no cover found
+
+
+                    // 5️ Insert or get Artist
+                    // Normalize the album artist name to prevent duplicates
+                    var normalizedAlbumArtist = albumArtistName.Trim();
+                    
+                    // Check if the artist already exists
+                    var albumArtist = _dbContext.Artists.FirstOrDefault(a => a.Name == normalizedAlbumArtist);
+                    if (albumArtist == null)
                     {
-                        FilePath = file,
-                        TrackTitle = string.IsNullOrEmpty(tagFile.Tag.Title)
-                                     ? Path.GetFileNameWithoutExtension(file)
-                                     : tagFile.Tag.Title,
-                        Artist = tagFile.Tag.Performers.FirstOrDefault() ?? "Unknown Artist",
-                        AlbumName = tagFile.Tag.Album ?? "Unknown Album",
-                        AlbumArtist = tagFile.Tag.AlbumArtists.FirstOrDefault() ?? "Unknown Album Artist",
-                        ReleaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null,
-                        Genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre",
-                        TrackNumber = tagFile.Tag.Track > 0 ? (int?)tagFile.Tag.Track : null,
-                        Duration = tagFile.Properties.Duration,
-                        FileFormat = Path.GetExtension(file).TrimStart('.').ToUpper(),
-                        Bitrate = tagFile.Properties.AudioBitrate,
-                        FileSize = new FileInfo(file).Length,
-                        MusicBrainzId = tagFile.Tag.MusicBrainzTrackId ?? string.Empty,
-                        ReleaseType = tagFile.Tag.Grouping ?? "Unknown",
-                        AlbumType = tagFile.Tag.AlbumSort ?? "Unknown"
+                        albumArtist = new Artist
+                        {
+                            Name = normalizedAlbumArtist,
+                            SortName = GetSortName(normalizedAlbumArtist) // e.g., "Weeknd, The"
+                        };
+                        _dbContext.Artists.Add(albumArtist);
+                        _dbContext.SaveChanges();
+                    }
+
+
+                    // 6️ Insert or get Album
+                    // Ensure we get or create a single artist for the album artist
+                    if (albumArtist == null)
+                    {
+                        albumArtist = new Artist
+                        {
+                            Name = albumArtistName,
+                            SortName = GetSortName(albumArtistName)
+                        };
+                        _dbContext.Artists.Add(albumArtist);
+                        _dbContext.SaveChanges();
+                    }
+
+                    // Check if album already exists under the correct Album Artist
+                    var album = _dbContext.Albums
+                        .FirstOrDefault(al => al.Name == albumName && al.ArtistId == albumArtist.Id);
+
+                    if (album == null)
+                    {
+                        album = new Album
+                        {
+                            Name = albumName,
+                            ArtistId = albumArtist.Id,
+                            ReleaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null,
+                            Genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre",
+                            CoverArtUrl = string.IsNullOrEmpty(coverArtPath) ? "" : coverArtPath // Use extracted cover art
+                        };
+                        _dbContext.Albums.Add(album);
+                        _dbContext.SaveChanges();
+                    }
+
+                    // 7️ Insert Track
+                    var track = new Track
+                    {
+                        Title = trackTitle,
+                        ArtistId = albumArtist.Id,
+                        AlbumId = album.Id,
+                        TrackNumber = trackNumber ?? 0,
+                        Duration = tagFile.Properties.Duration.ToString(@"mm\:ss"),
+                        FileFormat = fileFormat,
+                        Bitrate = bitrate,
+                        FileSize = fileSize,
+                        FilePath = file
                     };
 
-                    _dbContext.MusicTracks.Add(track);
-                    _logger.LogInformation("Added new track: {TrackTitle} by {Artist}", track.TrackTitle, track.Artist);
+                    _dbContext.Tracks.Add(track);
+                    _logger.LogInformation("Added track: {TrackTitle} by {Artist}", track.Title, albumArtist.Name);
                 }
                 catch (Exception ex)
                 {
@@ -85,16 +144,27 @@ namespace MusicServer.Services
                 }
             }
 
-            // 6. Remove tracks that are no longer present.
+            // 8️ Remove deleted tracks
             foreach (var track in removedTracks)
             {
-                _dbContext.MusicTracks.Remove(track);
-                _logger.LogInformation("Removed track: {TrackTitle} by {Artist}", track.TrackTitle, track.Artist);
+                _dbContext.Tracks.Remove(track);
+                _logger.LogInformation("Removed track: {TrackTitle}", track.Title);
             }
 
-            // 7. Save changes to the database.
+            // 9️ Save database changes
             _dbContext.SaveChanges();
             _logger.LogInformation("Library scan complete.");
         }
+
+        // Helper method to generate SortName for artists
+        private string GetSortName(string name)
+        {
+            if (name.StartsWith("The "))
+            {
+                return $"{name.Substring(4)}, The";
+            }
+            return name;
+        }
+
     }
 }

@@ -17,7 +17,7 @@ namespace MusicServer.Controllers
         [HttpGet("stream/{id}")]
         public IActionResult StreamTrack(int id)
         {
-            var track = _dbContext.MusicTracks.Find(id);
+            var track = _dbContext.Tracks.Find(id);
 
             if (track == null || !System.IO.File.Exists(track.FilePath))
             {
@@ -25,8 +25,7 @@ namespace MusicServer.Controllers
             }
 
             var fileStream = new FileStream(track.FilePath, FileMode.Open, FileAccess.Read);
-            var response = File(fileStream, "audio/mpeg", enableRangeProcessing: true);
-            return response;
+            return File(fileStream, "audio/mpeg", enableRangeProcessing: true);
         }
     }
 }
