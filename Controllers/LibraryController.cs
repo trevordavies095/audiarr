@@ -80,10 +80,10 @@ namespace MusicServer.Controllers
                     {
                         albumId = album.Id,
                         albumName = album.Name,
-                        albumArtist = _dbContext.Artists.Where(a => a.Id == album.ArtistId).Select(a => a.Name).FirstOrDefault(),
+                        albumArtist = album.Artist.Name,
                         releaseYear = album.ReleaseYear,
                         genre = album.Genre,
-                        coverArtUrl = album.CoverArtUrl,
+                        coverArtUrl = $"/api/library/artwork/{album.Id}",
                         trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id)
                     })
                     .OrderBy(a => a.albumArtist)
@@ -201,5 +201,24 @@ namespace MusicServer.Controllers
 
             return Ok(new { artists, albums, tracks });
         }
+    
+        [HttpGet("artwork/{albumId}")]
+        public IActionResult GetAlbumArtwork(int albumId)
+        {
+            var album = _dbContext.Albums.FirstOrDefault(a => a.Id == albumId);
+            if (album == null || string.IsNullOrEmpty(album.CoverArtUrl))
+            {
+                return NotFound("Cover art not found.");
+            }
+
+            if (!System.IO.File.Exists(album.CoverArtUrl))
+            {
+                return NotFound("Cover art file does not exist.");
+            }
+
+            var imageStream = new FileStream(album.CoverArtUrl, FileMode.Open, FileAccess.Read);
+            return File(imageStream, "image/jpeg"); // Adjust MIME type as needed
+        }
+
     }
 }
