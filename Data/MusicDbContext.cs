@@ -63,6 +63,24 @@ namespace MusicServer.Data
             .HasIndex(t => t.Id)
             .HasDatabaseName("idx_tracks_stream");
 
+        modelBuilder.Entity<Album>()
+            .HasOne(a => a.Artist)
+            .WithMany()
+            .HasForeignKey(a => a.ArtistId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Track>()
+            .HasOne(t => t.Album)
+            .WithMany()
+            .HasForeignKey(t => t.AlbumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Track>()
+            .HasOne(t => t.Artist)
+            .WithMany()
+            .HasForeignKey(t => t.ArtistId)
+            .OnDelete(DeleteBehavior.Cascade);
+
             base.OnModelCreating(modelBuilder);
         }
     }
