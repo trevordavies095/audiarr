@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MusicServer.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/library")]
     public class LibraryController : ControllerBase
     {
         private readonly MusicDbContext _dbContext;
