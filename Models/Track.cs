@@ -10,7 +10,7 @@ namespace MusicServer.Models
         public int Id { get; set; }
 
         [Required]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         public int ArtistId { get; set; } // Foreign Key
         public Artist Artist { get; set; } // Navigation property
@@ -19,11 +19,11 @@ namespace MusicServer.Models
         public Album Album { get; set; }  // Navigation property
 
         public int TrackNumber { get; set; }
-        public string Duration { get; set; }
-        public string FileFormat { get; set; }
+        public string Duration { get; set; } = string.Empty;
+        public string FileFormat { get; set; } = string.Empty;
         public int Bitrate { get; set; }
         public long FileSize { get; set; }
-        public string FilePath { get; set; }
+        public string FilePath { get; set; } = string.Empty;
 
         // Stream URL will be generated in API responses
         [NotMapped]

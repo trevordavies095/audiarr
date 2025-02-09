@@ -85,7 +85,7 @@ namespace MusicServer.Services
                         {
                             _dbContext.Entry(albumArtist).State = EntityState.Detached; // Avoid tracking duplicate entity
                             albumArtist = _dbContext.Artists.AsEnumerable().FirstOrDefault(a => string.Equals(a.Name, albumArtistName, StringComparison.OrdinalIgnoreCase));
-
+                            Console.WriteLine(ex);
                             if (albumArtist == null) // If still null, rethrow the error
                                 throw;
                         }
