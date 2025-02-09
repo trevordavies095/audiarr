@@ -113,7 +113,7 @@ namespace MusicServer.Controllers
                         albumArtist = _dbContext.Artists.Where(art => art.Id == a.ArtistId).Select(art => art.Name).FirstOrDefault(),
                         releaseYear = a.ReleaseYear,
                         genre = a.Genre,
-                        coverArtUrl = a.CoverArtUrl,
+                        coverArtUrl = $"/api/library/artwork/{albumId}",
                         trackCount = _dbContext.Tracks.Count(t => t.AlbumId == a.Id)
                     })
                     .FirstOrDefaultAsync();
