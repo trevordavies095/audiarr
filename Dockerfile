@@ -19,8 +19,6 @@ RUN apt-get update && apt-get install -y sqlite3
 
 # Set the environment variable (can be overridden at runtime)
 ENV MUSIC_LIBRARY_PATH="/music"
-RUN mkdir -p /music
-ENV DB_PATH="/audiarr-data/musiclibrary.db"
 
 # Set the environment variable to listen on port 5279
 ENV ASPNETCORE_URLS=http://+:5279
@@ -31,9 +29,6 @@ COPY --from=build /app/publish .
 
 # Ensure appsettings.json is copied explicitly
 COPY appsettings.json /app/appsettings.json
-
-# Set up a volume to persist the database file
-VOLUME ["/audiarr-data"]
 
 
 # Run the application
