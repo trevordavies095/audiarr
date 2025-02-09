@@ -25,6 +25,9 @@ namespace audiarr.Migrations
                     b.Property<int>("ArtistId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ArtistId1")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("CoverArtUrl")
                         .HasColumnType("TEXT");
 
@@ -42,6 +45,8 @@ namespace audiarr.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ArtistId");
+
+                    b.HasIndex("ArtistId1");
 
                     b.HasIndex("ReleaseYear")
                         .HasDatabaseName("idx_albums_releaseyear");
@@ -110,6 +115,9 @@ namespace audiarr.Migrations
                     b.Property<int>("AlbumId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("AlbumId1")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ArtistId")
                         .HasColumnType("INTEGER");
 
@@ -143,6 +151,8 @@ namespace audiarr.Migrations
                     b.HasIndex("AlbumId")
                         .HasDatabaseName("idx_tracks_album");
 
+                    b.HasIndex("AlbumId1");
+
                     b.HasIndex("ArtistId")
                         .HasDatabaseName("idx_tracks_artist");
 
@@ -161,21 +171,39 @@ namespace audiarr.Migrations
             modelBuilder.Entity("MusicServer.Models.Album", b =>
                 {
                     b.HasOne("MusicServer.Models.Artist", "Artist")
-                        .WithMany("Albums")
+                        .WithMany()
                         .HasForeignKey("ArtistId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MusicServer.Models.Artist", null)
+                        .WithMany("Albums")
+                        .HasForeignKey("ArtistId1");
 
                     b.Navigation("Artist");
                 });
 
             modelBuilder.Entity("MusicServer.Models.Track", b =>
                 {
-                    b.HasOne("MusicServer.Models.Album", null)
-                        .WithMany("Tracks")
+                    b.HasOne("MusicServer.Models.Album", "Album")
+                        .WithMany()
                         .HasForeignKey("AlbumId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MusicServer.Models.Album", null)
+                        .WithMany("Tracks")
+                        .HasForeignKey("AlbumId1");
+
+                    b.HasOne("MusicServer.Models.Artist", "Artist")
+                        .WithMany()
+                        .HasForeignKey("ArtistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Album");
+
+                    b.Navigation("Artist");
                 });
 
             modelBuilder.Entity("MusicServer.Models.Album", b =>

@@ -13,8 +13,10 @@ namespace MusicServer.Models
         public string Title { get; set; }
 
         public int ArtistId { get; set; } // Foreign Key
+        public Artist Artist { get; set; } // Navigation property
 
         public int AlbumId { get; set; } // Foreign Key
+        public Album Album { get; set; }  // Navigation property
 
         public int TrackNumber { get; set; }
         public string Duration { get; set; }

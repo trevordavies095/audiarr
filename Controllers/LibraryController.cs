@@ -147,5 +147,59 @@ namespace MusicServer.Controllers
             }
         }
 
+        [HttpGet("search")]
+        public IActionResult SearchLibrary([FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return BadRequest("Query parameter is required.");
+            }
+
+            // Normalize query
+            query = query.Trim().ToLower();
+
+            // Search for matching artists
+            var artists = _dbContext.Artists
+                .Where(a => a.Name.ToLower().Contains(query))
+                .Select(a => new
+                {
+                    a.Id,
+                    a.Name
+                })
+                .Take(50)
+                .ToList();
+
+            // Search for matching albums
+            var albums = _dbContext.Albums
+                .Where(al => al.Name.ToLower().Contains(query))
+                .Select(al => new
+                {
+                    al.Id,
+                    al.Name,
+                    ArtistName = _dbContext.Artists.Where(a => a.Id == al.ArtistId).Select(a => a.Name).FirstOrDefault(),
+                    al.ReleaseYear,
+                    al.CoverArtUrl
+                })
+                .Take(50)
+                .ToList();
+
+            // Search for matching tracks
+            var tracks = _dbContext.Tracks
+                .Include(t => t.Album)  // Ensure Album is loaded
+                .ThenInclude(a => a.Artist) // Ensure Artist is loaded
+                .Where(t => t.Title.ToLower().Contains(query))
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Title,
+                    ArtistName = t.Artist.Name, // Direct reference to Artist
+                    AlbumName = t.Album.Name,
+                    t.Duration
+                })
+                .Take(50)
+                .ToList();
+
+            return Ok(new { artists, albums, tracks });
+        }
     }
 }
