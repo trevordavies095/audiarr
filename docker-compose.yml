@@ -4,5 +4,6 @@ services:
             - 5279:5279
         volumes:
             - /mnt/Media/Music:/music
+            - /home/docker/audiarr/config:/config
         container_name: audiarr-server
         image: audiarr-server
