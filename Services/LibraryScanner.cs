@@ -28,12 +28,7 @@ namespace MusicServer.Services
             }
 
             // 1️⃣ Get all audio files in the library path
-            var audioFiles = Directory.GetFiles(_libraryPath, "*.*", SearchOption.AllDirectories)
-                .Where(f => f.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-                        || f.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
-                        || f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
-                        || f.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var audioFiles = GetAudioFiles();
 
             // 2️⃣ Get existing database records
             var dbTracks = _dbContext.Tracks.ToList();
@@ -146,6 +141,30 @@ namespace MusicServer.Services
             // 9️⃣ Save changes
             _dbContext.SaveChanges();
             _logger.LogInformation("Library scan complete.");
+        }
+
+        public List<string> GetAudioFiles()
+        {
+            // Define the allowed audio extensions.
+            var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".mp3", ".flac", ".wav", ".ogg"
+            };
+
+            var audioFiles = new DirectoryInfo(_libraryPath)
+                .EnumerateFiles("*.*", SearchOption.AllDirectories)
+                .Where(file =>
+                    // Exclude files with the hidden attribute.
+                    !file.Attributes.HasFlag(FileAttributes.Hidden)
+                    // Exclude macOS resource fork files.
+                    && !file.Name.StartsWith("._", StringComparison.Ordinal)
+                    // Only include allowed audio file types.
+                    && allowedExtensions.Contains(file.Extension)
+                )
+                .Select(file => file.FullName)
+                .ToList();
+
+            return audioFiles;
         }
 
 
