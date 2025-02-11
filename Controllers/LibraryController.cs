@@ -87,7 +87,7 @@ namespace MusicServer.Controllers
                         trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id),
                         dateAdded = album.DateAdded
                     })
-                    .OrderBy(a => a.albumArtist)
+                    .OrderByDescending(a => a.albumArtist)
                     .ThenBy(a => a.releaseYear)
                     .ToListAsync();
 
