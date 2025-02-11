@@ -104,7 +104,8 @@ namespace MusicServer.Services
                             ArtistId = albumArtist.Id,
                             ReleaseYear = releaseYear,
                             Genre = genre,
-                            CoverArtUrl = GetCoverArtPath(file)
+                            CoverArtUrl = GetCoverArtPath(file),
+                            DateAdded = DateTime.UtcNow // Set DateAdded when adding a new album
                         };
 
                         _dbContext.Albums.Add(album);
