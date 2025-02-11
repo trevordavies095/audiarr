@@ -115,7 +115,8 @@ namespace MusicServer.Controllers
                         releaseYear = a.ReleaseYear,
                         genre = a.Genre,
                         coverArtUrl = $"/api/library/artwork/{albumId}",
-                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == a.Id)
+                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == a.Id),
+                        dateAdded = a.DateAdded
                     })
                     .FirstOrDefaultAsync();
 
@@ -221,5 +222,26 @@ namespace MusicServer.Controllers
             return File(imageStream, "image/jpeg"); // Adjust MIME type as needed
         }
 
+        [HttpGet("recently-added")]
+        public IActionResult GetRecentlyAddedAlbums()
+        {
+            var albums = _dbContext.Albums
+                .OrderByDescending(a => a.DateAdded) // Newest first
+                .Take(50) // Limit to 50 albums
+                .Select(a => new
+                {
+                    albumId = a.Id,
+                    albumName = a.Name,
+                    albumArtist = a.Artist.Name,
+                    releaseYear = a.ReleaseYear,
+                    genre = a.Genre,
+                    coverArtUrl = a.CoverArtUrl,
+                    trackCount = _dbContext.Tracks.Count(t => t.AlbumId == a.Id),
+                    dateAdded = a.DateAdded
+                })
+                .ToList();
+
+            return Ok(albums);
+        }
     }
 }
