@@ -84,7 +84,8 @@ namespace MusicServer.Controllers
                         releaseYear = album.ReleaseYear,
                         genre = album.Genre,
                         coverArtUrl = $"/api/library/artwork/{album.Id}",
-                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id)
+                        trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id),
+                        dateAdded = album.DateAdded
                     })
                     .OrderBy(a => a.albumArtist)
                     .ThenBy(a => a.releaseYear)

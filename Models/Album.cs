@@ -18,6 +18,7 @@ namespace MusicServer.Models
         public int? ReleaseYear { get; set; }
         public string Genre { get; set; }
         public string? CoverArtUrl { get; set; }
+        public DateTime DateAdded { get; set; } = DateTime.UtcNow; // Default value for new albums
 
         // Navigation property (optional)
         public List<Track> Tracks { get; set; }
