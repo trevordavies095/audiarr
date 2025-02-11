@@ -1,67 +1,50 @@
-using Microsoft.EntityFrameworkCore;
-using MusicServer.Data;
-using MusicServer.Services;  // Add this namespace to access LibraryScanner
-using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using MusicServer.Data;
+using MusicServer.Services;
 
-
-
-// Builder is responsible for configuring the app, setting up services, and 
-// handling dependency injections
 var builder = WebApplication.CreateBuilder(args);
 
-// Load environment variables
-var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH");
-if (string.IsNullOrEmpty(musicLibraryPath))
+// Get the music library path from the environment or default to "/music"
+var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/music";
+if (musicLibraryPath == "/music")
 {
     Console.WriteLine("Warning: MUSIC_LIBRARY_PATH is not set. Using default path (/music).");
-    musicLibraryPath = "/music";
 }
 
-// Add services to the container
+// Configure services
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-
-// Add Authentication & Authorization
-builder.Services.AddAuthentication(); 
+builder.Services.AddEndpointsApiExplorer(); // Only one call is needed
+builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
-
 builder.Services.AddDbContext<MusicDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddScoped<LibraryScanner>(); // Ensure LibraryScanner is registered
+builder.Services.AddScoped<LibraryScanner>();
 builder.Services.AddLogging();
-
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowAll", cors =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        cors.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
-
-//OpenAPI
-// Add services to the container.
-builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Audiarr API", Version = "v1" });
 });
 
-
 var app = builder.Build();
 
-// ** Apply Migrations Automatically **
+// Apply migrations automatically
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
     try
     {
-        var dbContext = services.GetRequiredService<MusicDbContext>();
-        dbContext.Database.Migrate();  // Ensures migrations are applied
+        var dbContext = scope.ServiceProvider.GetRequiredService<MusicDbContext>();
+        dbContext.Database.Migrate();
         Console.WriteLine("Database migrations applied successfully.");
     }
     catch (Exception ex)
@@ -70,8 +53,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
-// Enable Swagger middleware
+// Configure the middleware pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -81,16 +63,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
-// Then in the middleware pipeline:
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseAuthentication();  // Ensure authentication middleware is before authorization
-app.UseAuthorization(); 
-
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
-// Log the configured music library path
 Console.WriteLine($"Music Library Path: {musicLibraryPath}");
-
 app.Run();
