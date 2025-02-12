@@ -33,6 +33,11 @@ namespace MusicServer.Models
         public int TrackNumber { get; set; }
 
         /// <summary>
+        /// Gets or sets the disc number.
+        /// </summary>
+        public int? DiscNumber { get; set; }
+
+        /// <summary>
         /// Gets or sets the duration of the track.
         /// </summary>
         public string Duration { get; set; } = string.Empty;

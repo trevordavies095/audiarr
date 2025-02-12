@@ -176,6 +176,7 @@ namespace MusicServer.Controllers
                             .Select(a => a.Name)
                             .FirstOrDefault(),
                         trackNumber = t.TrackNumber,
+                        discNumber = t.DiscNumber,
                         duration = t.Duration,
                         fileFormat = t.FileFormat,
                         bitrate = t.Bitrate,
