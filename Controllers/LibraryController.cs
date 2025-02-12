@@ -183,7 +183,8 @@ namespace MusicServer.Controllers
                         fileSize = t.FileSize,
                         streamUrl = $"/api/music/stream/{t.Id}"
                     })
-                    .OrderBy(t => t.trackNumber)
+                    .OrderBy(t => t.discNumber)
+                    .ThenBy(t => t.trackNumber)
                     .ToListAsync();
 
                 return Ok(new { album, tracks });
