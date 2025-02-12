@@ -30,19 +30,24 @@ Audiarr is a selfhostable, lightweight music server that enables users to listen
 
 ## Get Started
 
-1. Run the Server
+1. Build the image
+```bash
+docker build -t audiarr-server:latest .
+```
+
+2. Run the Server
 Use Docker Compose to start the Audiarr server:
 ```bash
 docker-compose up -d
 ```
 
-2. Scan Your Music Library
+3. Scan Your Music Library
 After starting the server, initiate a library scan to index your music files:
 ```bash
 curl -X POST http://localhost:5279/api/library/scan
 ```
 
-3. Connect to the Server (Optional: Using Audiarr Client)
+4. Connect to the Server (Optional: Using Audiarr Client)
 If you're using Audiarr Client:
 - Navigate to the client in your browser
 - Input the server URL (e.g., http://localhost:5279)
