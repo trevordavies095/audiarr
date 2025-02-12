@@ -70,6 +70,7 @@ namespace MusicServer.Services
                     int? releaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null;
                     string genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre";
                     int? trackNumber = tagFile.Tag.Track > 0 ? (int?)tagFile.Tag.Track : null;
+                    int? discNumber = tagFile.Tag.Disc > 0 ? (int?)tagFile.Tag.Disc : null;
                     string fileFormat = Path.GetExtension(file).TrimStart('.').ToUpper();
                     int bitrate = tagFile.Properties.AudioBitrate;
                     long fileSize = new FileInfo(file).Length;
@@ -132,6 +133,7 @@ namespace MusicServer.Services
                         ArtistId = albumArtist.Id,
                         AlbumId = album.Id,
                         TrackNumber = trackNumber ?? 0,
+                        DiscNumber = discNumber ?? 1,
                         Duration = tagFile.Properties.Duration.ToString(@"mm\:ss"),
                         FileFormat = fileFormat,
                         Bitrate = bitrate,
