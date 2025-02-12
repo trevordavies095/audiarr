@@ -115,6 +115,7 @@ namespace MusicServer.Controllers
                         albumArtist = album.Artist.Name,
                         releaseYear = album.ReleaseYear,
                         genre = album.Genre,
+                        releaseType = album.ReleaseType,
                         coverArtUrl = $"/api/library/artwork/{album.Id}",
                         trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id),
                         dateAdded = album.DateAdded

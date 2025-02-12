@@ -39,6 +39,12 @@ namespace MusicServer.Models
         public string? Genre { get; set; }
 
         /// <summary>
+        /// Gets or sets the release type of the album.
+        /// </summary>
+        /// 
+        public string ReleaseType { get; set; }
+
+        /// <summary>
         /// Gets or sets the cover art URL for the album.
         /// </summary>
         /// 
