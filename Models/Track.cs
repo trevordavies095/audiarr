@@ -28,14 +28,14 @@ namespace MusicServer.Models
         public string Title { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the track number.
-        /// </summary>
-        public int TrackNumber { get; set; }
-
-        /// <summary>
         /// Gets or sets the disc number.
         /// </summary>
         public int? DiscNumber { get; set; }
+
+        /// <summary>
+        /// Gets or sets the track number.
+        /// </summary>
+        public int TrackNumber { get; set; }
 
         /// <summary>
         /// Gets or sets the duration of the track.
