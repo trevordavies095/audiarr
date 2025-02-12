@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y sqlite3
 
 # Set the environment variable (can be overridden at runtime)
 ENV MUSIC_LIBRARY_PATH="/music"
+ENV ASPNETCORE_ENVIRONMENT=Development
 
 # Set the environment variable to listen on port 5279
 ENV ASPNETCORE_URLS=http://+:5279
