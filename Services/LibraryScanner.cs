@@ -41,20 +41,20 @@ namespace MusicServer.Services
                 return;
             }
 
-            // 1️. Get all audio files in the library path
+            // 1. Get all audio files in the library path
             var audioFiles = GetAudioFiles();
 
-            // 2️. Get existing database records
+            // 2. Get existing database records
             var dbTracks = _dbContext.Tracks.ToList();
             var dbFilePaths = dbTracks.Select(t => t.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            // 3️. Identify new and removed files
+            // 3. Identify new and removed files
             var newFiles = audioFiles.Where(file => !dbFilePaths.Contains(file)).ToList();
             var removedTracks = dbTracks.Where(track => !audioFiles.Contains(track.FilePath)).ToList();
 
             _logger.LogInformation("Found {NewCount} new files and {RemovedCount} removed files.", newFiles.Count, removedTracks.Count);
 
-            // 4️. Process new files
+            // 4. Process new files
             foreach (var file in newFiles)
             {
                 try
@@ -62,24 +62,24 @@ namespace MusicServer.Services
                     var tagFile = TagLib.File.Create(file);
 
                     // Extract metadata from the audio file.
-                    string trackTitle = string.IsNullOrEmpty(tagFile.Tag.Title) 
-                        ? Path.GetFileNameWithoutExtension(file) 
+                    string trackTitle = string.IsNullOrEmpty(tagFile.Tag.Title)
+                        ? Path.GetFileNameWithoutExtension(file)
                         : tagFile.Tag.Title;
                     string albumArtistName = tagFile.Tag.AlbumArtists.FirstOrDefault() ?? "Unknown Album Artist";
                     string albumName = tagFile.Tag.Album ?? "Unknown Album";
                     int? releaseYear = tagFile.Tag.Year > 0 ? (int?)tagFile.Tag.Year : null;
                     string genre = tagFile.Tag.Genres.FirstOrDefault() ?? "Unknown Genre";
+                    string releaseType = tagFile.Tag.MusicBrainzReleaseType ?? "album";
                     int? trackNumber = tagFile.Tag.Track > 0 ? (int?)tagFile.Tag.Track : null;
                     int? discNumber = tagFile.Tag.Disc > 0 ? (int?)tagFile.Tag.Disc : null;
                     string fileFormat = Path.GetExtension(file).TrimStart('.').ToUpper();
                     int bitrate = tagFile.Properties.AudioBitrate;
                     long fileSize = new FileInfo(file).Length;
 
-                    // 5️. Insert/Get Artist (using Album Artist)
+                    // 5. Insert/Get Artist (using Album Artist)
                     var albumArtist = _dbContext.Artists
                         .AsEnumerable() // Switch to LINQ to Objects
                         .FirstOrDefault(a => string.Equals(a.Name, albumArtistName, StringComparison.OrdinalIgnoreCase));
-
 
                     if (albumArtist == null)
                     {
@@ -104,8 +104,7 @@ namespace MusicServer.Services
                         }
                     }
 
-
-                    // 6️. Insert/Get Album
+                    // 6. Insert/Get Album
                     var album = _dbContext.Albums
                         .FirstOrDefault(a => a.Name == albumName && a.ArtistId == albumArtist.Id);
 
@@ -117,6 +116,7 @@ namespace MusicServer.Services
                             ArtistId = albumArtist.Id,
                             ReleaseYear = releaseYear,
                             Genre = genre,
+                            ReleaseType = releaseType, // New property added to store release type
                             CoverArtUrl = GetCoverArtPath(file),
                             DateAdded = DateTime.UtcNow // Record the time when the album is added.
                         };
@@ -125,8 +125,7 @@ namespace MusicServer.Services
                         _dbContext.SaveChanges();
                     }
 
-
-                    // 7️. Insert Track
+                    // 7. Insert Track
                     var track = new Track
                     {
                         Title = trackTitle,
@@ -150,17 +149,18 @@ namespace MusicServer.Services
                 }
             }
 
-            // 8️. Remove deleted tracks
+            // 8. Remove deleted tracks
             foreach (var track in removedTracks)
             {
                 _dbContext.Tracks.Remove(track);
                 _logger.LogInformation("Removed track: {TrackTitle}", track.Title);
             }
 
-            // 9️. Save changes
+            // 9. Save changes
             _dbContext.SaveChanges();
             _logger.LogInformation("Library scan complete.");
         }
+
 
         /// <summary>
         /// Retrieves a list of audio file paths from the music library.
