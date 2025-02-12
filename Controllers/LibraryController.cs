@@ -175,8 +175,8 @@ namespace MusicServer.Controllers
                             .Where(a => a.Id == t.ArtistId)
                             .Select(a => a.Name)
                             .FirstOrDefault(),
-                        trackNumber = t.TrackNumber,
                         discNumber = t.DiscNumber,
+                        trackNumber = t.TrackNumber,
                         duration = t.Duration,
                         fileFormat = t.FileFormat,
                         bitrate = t.Bitrate,
