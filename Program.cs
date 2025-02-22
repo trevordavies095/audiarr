@@ -9,7 +9,7 @@ using MusicServer.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Get the music library path from the environment or default to "/music"
-var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/music"
+var musicLibraryPath = Environment.GetEnvironmentVariable("MUSIC_LIBRARY_PATH") ?? "/music";
 if (musicLibraryPath == "/music")
 {
     Console.WriteLine("Warning: MUSIC_LIBRARY_PATH is not set. Using default path (/music).");
