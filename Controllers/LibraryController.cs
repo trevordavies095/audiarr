@@ -110,11 +110,13 @@ namespace MusicServer.Controllers
             }
 
             var albums = await query
+                    .Where(al => al.artistId == artistId)
                     .Select(album => new
                     {
                         albumId = album.Id,
                         albumName = album.Name,
                         albumArtist = album.Artist.Name,
+                        artistId = a.ArtistId,
                         releaseYear = album.ReleaseYear,
                         genre = album.Genre,
                         releaseType = album.ReleaseType,
