@@ -51,6 +51,7 @@ namespace MusicServer.Controllers
                 title = track.Title,
                 artist = track.Album.Artist.Name,
                 album = track.Album.Name,
+                albumId = track.Album.Id,
                 releaseYear = track.Album.ReleaseYear,
                 bitrate = track.Bitrate,
                 format = track.FileFormat,
