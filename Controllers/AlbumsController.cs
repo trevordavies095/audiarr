@@ -78,7 +78,8 @@ namespace MusicServer.Controllers
                     bitrate = t.Bitrate,
                     format = t.FileFormat,
                     filePath = t.FilePath,
-                    fileSize = t.FileSize
+                    fileSize = t.FileSize,
+                    liked = t.Liked
                 })
                 .ToListAsync();
 

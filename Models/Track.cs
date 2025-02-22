@@ -62,6 +62,11 @@ namespace MusicServer.Models
         /// </summary>
         public string FilePath { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Indicates if a track is liked or not
+        /// </summary>
+        public bool Liked { get; set; } = false;
+
         #endregion
 
         #region Navigation Properties
