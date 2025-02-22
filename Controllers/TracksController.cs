@@ -62,6 +62,68 @@ namespace MusicServer.Controllers
             });
         }
 
+        // POST /api/tracks/{trackId}/like
+        [HttpPost("{trackId}/like")]
+        public async Task<IActionResult> LikeTrack(int trackId)
+        {
+            var track = await _dbContext.Tracks.FindAsync(trackId);
+            if (track == null)
+            {
+                return NotFound(new { message = "Track not found" });
+            }
+
+            if (track.Liked)
+            {
+                return Conflict(new { message = "Track is already liked" });
+            }
+
+            track.Liked = true;
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { message = "Track liked successfully", trackId, liked = track.Liked });
+        }
+
+        // POST /api/tracks/{trackId}/unlike
+        [HttpPost("{trackId}/unlike")]
+        public async Task<IActionResult> UnlikeTrack(int trackId)
+        {
+            var track = await _dbContext.Tracks.FindAsync(trackId);
+            if (track == null)
+            {
+                return NotFound(new { message = "Track not found" });
+            }
+
+            if (!track.Liked)
+            {
+                return Conflict(new { message = "Track is already not liked" });
+            }
+
+            track.Liked = false;
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { message = "Track unliked successfully", trackId, liked = track.Liked });
+        }
+
+        // GET /api/tracks/liked
+        [HttpGet("liked")]
+        public async Task<IActionResult> GetLikedTracks()
+        {
+            var likedTracks = await _dbContext.Tracks
+                .Where(t => t.Liked)
+                .Select(t => new
+                {
+                    id = t.Id,
+                    title = t.Title,
+                    artist = t.Artist.Name,
+                    album = t.Album.Name,
+                    duration = t.Duration
+                })
+                .ToListAsync();
+
+            return Ok(likedTracks);
+        }
+
+
         #endregion
 
     }
