@@ -30,6 +30,16 @@ namespace MusicServer.Data
         /// </summary>
         public DbSet<Track> Tracks { get; set; }
 
+        /// <summary>
+        /// Gets or sets the Playlists.
+        /// </summary>
+        public DbSet<Playlist> Playlists { get; set; }
+
+        /// <summary>
+        /// Gets or sets the playlist tracks.
+        /// </summary>
+        public DbSet<PlaylistTrack> PlaylistTracks { get; set; }
+
         #endregion
 
         #region Constructor
@@ -128,6 +138,22 @@ namespace MusicServer.Data
                 .HasOne(t => t.Artist)
                 .WithMany()
                 .HasForeignKey(t => t.ArtistId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Define composite key for PlaylistTracks
+            modelBuilder.Entity<PlaylistTrack>()
+                .HasKey(pt => new { pt.PlaylistId, pt.TrackId });
+
+            modelBuilder.Entity<PlaylistTrack>()
+                .HasOne(pt => pt.Playlist)
+                .WithMany(p => p.PlaylistTracks)
+                .HasForeignKey(pt => pt.PlaylistId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PlaylistTrack>()
+                .HasOne(pt => pt.Track)
+                .WithMany()
+                .HasForeignKey(pt => pt.TrackId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);
