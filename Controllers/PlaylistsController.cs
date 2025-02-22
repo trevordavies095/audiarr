@@ -201,6 +201,55 @@ namespace MusicServer.Controllers
             return Ok(new { message = "Track removed from playlist" });
         }
 
+        // PUT /api/playlists/{playlistId}/{newName}
+        [HttpPut("{playlistId}/{newName}")]
+        public async Task<IActionResult> RenamePlaylist(int playlistId, string newName)
+        {
+            if (string.IsNullOrWhiteSpace(newName))
+            {
+                return BadRequest(new { message = "New playlist name is required" });
+            }
+
+            var playlist = await _dbContext.Playlists.FindAsync(playlistId);
+            if (playlist == null)
+            {
+                return NotFound(new { message = "Playlist not found" });
+            }
+
+            playlist.Name = newName;
+            playlist.DateModified = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { message = "Playlist renamed successfully"});
+        }
+
+        // DELETE /api/playlists/{playlistId}
+        [HttpDelete("{playlistId}")]
+        public async Task<IActionResult> DeletePlaylist(int playlistId)
+        {
+            var playlist = await _dbContext.Playlists
+                .Include(p => p.PlaylistTracks) // Load associated tracks
+                .FirstOrDefaultAsync(p => p.Id == playlistId);
+
+            if (playlist == null)
+            {
+                return NotFound(new { message = "Playlist not found" });
+            }
+
+            // Remove all tracks from the playlist
+            _dbContext.PlaylistTracks.RemoveRange(playlist.PlaylistTracks);
+
+            // Delete the playlist itself
+            _dbContext.Playlists.Remove(playlist);
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { message = "Playlist deleted successfully" });
+        }
+
+
+
 
 
 
