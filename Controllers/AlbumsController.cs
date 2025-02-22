@@ -32,13 +32,31 @@ namespace MusicServer.Controllers
 
         #region API Endpoints
 
-        // GET /api/albums/{albumId}/tracks
+        /// <summary>
+        /// Retrieves the album details and its tracks for a given album ID.
+        /// </summary>
+        /// <param name="albumId">The album ID.</param>
+        /// <returns>An object containing album details and tracks.</returns>
         [HttpGet("{albumId}/tracks")]
         public async Task<IActionResult> GetTracksByAlbum(int albumId)
         {
             var album = await _dbContext.Albums
-                .Include(a => a.Artist)
-                .FirstOrDefaultAsync(a => a.Id == albumId);
+                .Where(al => al.Id == albumId)
+                .Select(al => new
+                {
+                    albumId = al.Id,
+                    albumName = al.Name,
+                    albumArtist = _dbContext.Artists
+                        .Where(art => art.Id == al.ArtistId)
+                        .Select(art => art.Name)
+                        .FirstOrDefault(),
+                    releaseYear = al.ReleaseYear,
+                    genre = al.Genre,
+                    coverArtUrl = $"/api/library/artwork/{albumId}",
+                    trackCount = _dbContext.Tracks.Count(t => t.AlbumId == al.Id),
+                    dateAdded = al.DateAdded
+                })
+                .FirstOrDefaultAsync();
 
             if (album == null)
             {
@@ -64,12 +82,7 @@ namespace MusicServer.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(new
-            {
-                album = album.Name,
-                artist = album.Artist.Name,
-                tracks
-            });
+            return Ok(new { album, tracks });
         }
 
         #endregion
