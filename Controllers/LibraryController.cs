@@ -91,23 +91,25 @@ namespace MusicServer.Controllers
         }
 
         /// <summary>
-        /// Retrieves a list of albums, optionally filtered by artist.
+        /// Retrieves a list of albums by artist.
         /// </summary>
-        /// <param name="artistId">Optional artist ID to filter the albums.</param>
+        /// <param name="artistId">Artist ID to filter the albums.</param>
         /// <returns>A list of albums.</returns>
-        [HttpGet("albums")]
-        public async Task<IActionResult> GetAlbums([FromQuery] int? artistId = null)
+        [HttpGet("{artistId}/albums")]
+        public async Task<IActionResult> GetAlbumsByArtist(int artistId)
         {
-            try
+            var query = _dbContext.Albums.AsQueryable();
+            var artist = await _dbContext.Artists
+                .Include(a => a.Albums)
+                .FirstOrDefaultAsync(a => a.Id == artistId);
+
+            if (artist == null)
             {
-                var query = _dbContext.Albums.AsQueryable();
+                _logger.LogError("Artist not found");
+                return StatusCode(404, "Artist not found");
+            }
 
-                if (artistId.HasValue)
-                {
-                    query = query.Where(album => album.ArtistId == artistId.Value);
-                }
-
-                var albums = await query
+            var albums = await query
                     .Select(album => new
                     {
                         albumId = album.Id,
@@ -124,13 +126,11 @@ namespace MusicServer.Controllers
                     .ThenByDescending(a => a.releaseYear)
                     .ToListAsync();
 
-                return Ok(albums);
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                _logger.LogError("Error fetching albums for artist {Artist}: {Message}", artistId, ex.Message);
-                return StatusCode(500, "An error occurred while fetching albums.");
-            }
+                artist = artist.Name,
+                albums
+            });
         }
 
         /// <summary>
