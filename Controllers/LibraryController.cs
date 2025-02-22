@@ -297,6 +297,7 @@ namespace MusicServer.Controllers
                 {
                     albumId = a.Id,
                     albumName = a.Name,
+                    artistId = a.ArtistId,
                     albumArtist = a.Artist.Name,
                     releaseYear = a.ReleaseYear,
                     genre = a.Genre,
