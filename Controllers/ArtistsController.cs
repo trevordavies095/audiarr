@@ -7,7 +7,7 @@ namespace MusicServer.Controllers
 {
     [ApiController]
     [Route("api/artists")]
-    public class ArtistController : ControllerBase
+    public class ArtistsController : ControllerBase
     {
         #region Fields
         private readonly MusicDbContext _dbContext;
@@ -18,11 +18,11 @@ namespace MusicServer.Controllers
         #region Constructor
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ArtistController"/> class.
+        /// Initializes a new instance of the <see cref="ArtistsController"/> class.
         /// </summary>
         /// <param name="dbContext">The music database context.</param>
         /// <param name="logger">The logger instance.</param>
-        public ArtistController(MusicDbContext dbContext, ILogger<LibraryController> logger)
+        public ArtistsController(MusicDbContext dbContext, ILogger<LibraryController> logger)
         {
             _dbContext = dbContext;
             _logger = logger;
