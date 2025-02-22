@@ -110,13 +110,12 @@ namespace MusicServer.Controllers
             }
 
             var albums = await query
-                    .Where(al => al.artistId == artistId)
                     .Select(album => new
                     {
                         albumId = album.Id,
                         albumName = album.Name,
                         albumArtist = album.Artist.Name,
-                        artistId = a.ArtistId,
+                        artistId = album.ArtistId,
                         releaseYear = album.ReleaseYear,
                         genre = album.Genre,
                         releaseType = album.ReleaseType,
@@ -124,8 +123,9 @@ namespace MusicServer.Controllers
                         trackCount = _dbContext.Tracks.Count(t => t.AlbumId == album.Id),
                         dateAdded = album.DateAdded
                     })
-                    .OrderBy(a => a.albumArtist)
-                    .ThenByDescending(a => a.releaseYear)
+                    .Where(album => album.artistId == artistId)
+                    .OrderBy(album => album.albumArtist)
+                    .ThenByDescending(album => album.releaseYear)
                     .ToListAsync();
 
             return Ok(new
