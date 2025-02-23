@@ -59,7 +59,8 @@ namespace MusicServer.Controllers
                 trackNumber = track.TrackNumber,
                 discNumber = track.DiscNumber,
                 filePath = track.FilePath,
-                fileSize = track.FileSize
+                fileSize = track.FileSize,
+                isLiked = track.Liked
             });
         }
 
