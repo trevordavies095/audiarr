@@ -116,10 +116,14 @@ namespace MusicServer.Controllers
                 {
                     id = t.Id,
                     title = t.Title,
-                    artist = t.Artist.Name,
-                    album = t.Album.Name,
-                    albumId = t.Album.Id,
-                    duration = t.Duration
+                    trackNumber = t.TrackNumber,
+                    discNumber = t.DiscNumber,
+                    duration = t.Duration,
+                    bitrate = t.Bitrate,
+                    format = t.FileFormat,
+                    filePath = t.FilePath,
+                    fileSize = t.FileSize,
+                    liked = t.Liked
                 })
                 .ToListAsync();
 
