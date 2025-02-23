@@ -88,6 +88,17 @@ namespace MusicServer.Controllers
             return Ok(new { Message = "Server name updated successfully", ServerName = settings.ServerName });
         }
 
+        /// <summary>
+        /// GET /api/settings/health-check
+        /// Simple healthcheck to see if server is reachable
+        /// </summary>
+        /// <returns>200</returns>
+        [HttpGet("health-check")]
+        public async Task<IActionResult> HealthCheck()
+        {
+            return Ok();
+        }
+
         #endregion
     }
 }
