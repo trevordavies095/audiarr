@@ -164,6 +164,7 @@ namespace MusicServer.Controllers
                     id = pt.Track.Id,
                     title = pt.Track.Title,
                     album = pt.Track.Album != null ? pt.Track.Album.Name : "Unknown Album", // Use default value if null
+                    albumId = pt.Track.AlbumId,
                     artist = pt.Track.Artist != null ? pt.Track.Artist.Name : "Unknown Artist", // Use default value if null
                     duration = pt.Track.Duration,
                     addedAt = pt.AddedAt
