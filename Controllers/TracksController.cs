@@ -118,6 +118,7 @@ namespace MusicServer.Controllers
                     title = t.Title,
                     artist = t.Artist.Name,
                     album = t.Album.Name,
+                    albumId = t.Album.Id,
                     duration = t.Duration
                 })
                 .ToListAsync();
