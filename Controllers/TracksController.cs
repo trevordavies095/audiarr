@@ -116,6 +116,8 @@ namespace MusicServer.Controllers
                 {
                     id = t.Id,
                     title = t.Title,
+                    artistId = t.ArtistId,
+                    albumId = t.AlbumId,
                     trackNumber = t.TrackNumber,
                     discNumber = t.DiscNumber,
                     duration = t.Duration,
