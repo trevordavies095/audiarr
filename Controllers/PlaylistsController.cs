@@ -173,6 +173,7 @@ namespace MusicServer.Controllers
 
             return Ok(new
             {
+                playlist = playlist.Name,
                 tracks
             });
         }
