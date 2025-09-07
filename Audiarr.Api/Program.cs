@@ -75,6 +75,10 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Add Blazor Server services
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -85,6 +89,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+// Serve static files from wwwroot
+app.UseStaticFiles();
 
 // Add authentication & authorization middleware
 app.UseAuthentication();
@@ -115,5 +122,9 @@ app.MapGet("/api/info", () => Results.Ok(new
 
 // Map API endpoints
 app.MapAuthEndpoints();
+
+// Map Blazor Server endpoints
+app.MapBlazorHub();
+app.MapFallbackToPage("/admin/{*catchall}", "/_Host");
 
 app.Run();
