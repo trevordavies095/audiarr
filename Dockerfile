@@ -1,36 +1,35 @@
-# Stage 1: Build and publish the application
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
 
-# Copy the project file and restore dependencies
-COPY *.csproj ./
-RUN dotnet restore "audiarr.csproj"
+# Copy solution and project files
+COPY Audiarr.sln .
+COPY Audiarr.Api/Audiarr.Api.csproj ./Audiarr.Api/
 
-# Copy the entire project and build it
-COPY . ./
-RUN dotnet publish "audiarr.csproj" -c Release -o /app/publish
+# Restore dependencies
+RUN dotnet restore
 
-# Stage 2: Runtime Image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# Copy everything else and build
+COPY . .
+RUN dotnet publish Audiarr.Api/Audiarr.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
-# Install SQLite CLI
-RUN apt-get update && apt-get install -y sqlite3
+# Install ffmpeg for audio processing
+RUN apk add --no-cache ffmpeg
 
-# Set the environment variable (can be overridden at runtime)
-ENV MUSIC_LIBRARY_PATH="/music"
-ENV ASPNETCORE_ENVIRONMENT=Development
-
-# Set the environment variable to listen on port 5279
-ENV ASPNETCORE_URLS=http://+:5279
-EXPOSE 5279
-
-# Copy the published application
+# Copy published application
 COPY --from=build /app/publish .
 
-# Ensure appsettings.json is copied explicitly
-COPY appsettings.json /app/appsettings.json
+# Create data directory for SQLite database
+RUN mkdir -p /data
 
+# Set environment variables
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV MUSIC_LIBRARY_PATH="/music"
 
-# Run the application
-ENTRYPOINT ["dotnet", "audiarr.dll"]
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Audiarr.Api.dll"]
