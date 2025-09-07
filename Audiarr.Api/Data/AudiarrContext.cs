@@ -9,6 +9,7 @@ public class AudiarrContext : DbContext
     {
     }
 
+
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Artist> Artists { get; set; } = null!;
     public DbSet<Album> Albums { get; set; } = null!;
@@ -109,17 +110,17 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => new { e.PlaylistId, e.Position });
         });
 
-        // Seed admin user
+        // Seed admin user with fixed values to prevent migration changes
         modelBuilder.Entity<User>().HasData(new User
         {
             Id = "admin",
             Username = "admin",
             Email = "admin@localhost",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("changeme"),
+            PasswordHash = "$2a$11$OfpXVYD9ge7s.q0LiudGbe3AOGBaxel1f8BAGKT4pAeQEL8Hsae0m", // BCrypt hash of "changeme"
             Role = "admin",
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         });
     }
 
