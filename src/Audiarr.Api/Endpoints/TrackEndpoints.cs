@@ -29,7 +29,7 @@ public static class TrackEndpoints
                 .ThenBy(t => t.TrackNumber);
 
             var total = await query.CountAsync();
-            
+
             var tracks = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
@@ -53,10 +53,10 @@ public static class TrackEndpoints
                 })
                 .ToListAsync();
 
-            return Results.Ok(new 
-            { 
-                data = tracks, 
-                page, 
+            return Results.Ok(new
+            {
+                data = tracks,
+                page,
                 limit,
                 total,
                 totalPages = (int)Math.Ceiling((double)total / limit)
@@ -74,7 +74,7 @@ public static class TrackEndpoints
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
                 .Where(t => t.Id == id)
-                .Select(t => new 
+                .Select(t => new
                 {
                     Id = t.Id,
                     Title = t.Title,
@@ -120,9 +120,9 @@ public static class TrackEndpoints
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
                 .Where(t => t.Id == id)
-                .Select(t => new 
-                { 
-                    t.FilePath, 
+                .Select(t => new
+                {
+                    t.FilePath,
                     FileName = $"{t.Artist.Name} - {t.Album.Title} - {t.TrackNumber:00} - {t.Title}{Path.GetExtension(t.FilePath)}"
                 })
                 .FirstOrDefaultAsync();
@@ -135,9 +135,9 @@ public static class TrackEndpoints
 
             var fileBytes = await File.ReadAllBytesAsync(track.FilePath);
             var contentType = GetAudioContentType(track.FilePath);
-            
+
             return Results.File(
-                fileBytes, 
+                fileBytes,
                 contentType: contentType,
                 fileDownloadName: SanitizeFileName(track.FileName)
             );
@@ -196,7 +196,7 @@ public static class TrackEndpoints
                 .Where(t => t.PlayCount > 0)
                 .OrderByDescending(t => t.PlayCount)
                 .Take(limit)
-                .Select(t => new 
+                .Select(t => new
                 {
                     Id = t.Id,
                     Title = t.Title,
@@ -232,8 +232,8 @@ public static class TrackEndpoints
             track.LastPlayedDate = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
-            return Results.Ok(new 
-            { 
+            return Results.Ok(new
+            {
                 message = "Play count updated",
                 playCount = track.PlayCount,
                 lastPlayedDate = track.LastPlayedDate

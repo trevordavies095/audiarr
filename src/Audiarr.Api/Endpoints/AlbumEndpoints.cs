@@ -27,7 +27,7 @@ public static class AlbumEndpoints
                 .ThenBy(a => a.Title);
 
             var total = await query.CountAsync();
-            
+
             var albums = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
@@ -45,10 +45,10 @@ public static class AlbumEndpoints
                 })
                 .ToListAsync();
 
-            return Results.Ok(new 
-            { 
-                data = albums, 
-                page, 
+            return Results.Ok(new
+            {
+                data = albums,
+                page,
                 limit,
                 total,
                 totalPages = (int)Math.Ceiling((double)total / limit)
@@ -66,7 +66,7 @@ public static class AlbumEndpoints
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
                 .Where(a => a.Id == id)
-                .Select(a => new 
+                .Select(a => new
                 {
                     Id = a.Id,
                     Title = a.Title,
@@ -177,7 +177,7 @@ public static class AlbumEndpoints
             if (album.CoverArtPath.StartsWith("/artwork/"))
             {
                 var filename = album.CoverArtPath.Substring("/artwork/".Length);
-                var baseDir = env.IsDevelopment() 
+                var baseDir = env.IsDevelopment()
                     ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
                     : "/data";
                 actualFilePath = Path.Combine(baseDir, "artwork", filename);
@@ -195,7 +195,7 @@ public static class AlbumEndpoints
 
             var fileBytes = await File.ReadAllBytesAsync(actualFilePath);
             var contentType = GetImageContentType(actualFilePath);
-            
+
             return Results.File(fileBytes, contentType);
         })
         .WithName("GetAlbumCover")
