@@ -16,6 +16,7 @@ public class AudiarrContext : DbContext
     public DbSet<Track> Tracks { get; set; } = null!;
     public DbSet<Playlist> Playlists { get; set; } = null!;
     public DbSet<PlaylistTrack> PlaylistTracks { get; set; } = null!;
+    public DbSet<Session> Sessions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +109,20 @@ public class AudiarrContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasIndex(e => new { e.PlaylistId, e.Position });
+        });
+
+        // Configure Session entity
+        modelBuilder.Entity<Session>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RefreshTokenHash).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.ExpiresAt });
+            entity.Property(e => e.RefreshTokenHash).IsRequired();
+            
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Seed admin user with fixed values to prevent migration changes
