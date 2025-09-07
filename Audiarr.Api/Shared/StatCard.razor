@@ -1,0 +1,31 @@
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title text-muted">@Title</h5>
+        <p class="card-text display-4">@Value</p>
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <div class="stat-icon">@Icon</div>
+        }
+        @if (!string.IsNullOrEmpty(Description))
+        {
+            <small class="text-muted">@Description</small>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Description { get; set; }
+}
+
+<style>
+    .stat-icon {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 2rem;
+        opacity: 0.3;
+    }
+</style>

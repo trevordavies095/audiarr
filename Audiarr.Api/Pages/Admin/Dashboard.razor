@@ -5,48 +5,56 @@
 @using Microsoft.EntityFrameworkCore
 @attribute [Authorize]
 @inject AudiarrContext DbContext
+@inject NavigationManager Navigation
 
 <PageTitle>Dashboard - Audiarr Admin</PageTitle>
 
 <h1>Dashboard</h1>
 
 <div class="row">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Total Tracks</h5>
-                <p class="card-text display-4">@trackCount</p>
-            </div>
-        </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Tracks" Value="@trackCount.ToString()" Icon="🎵" />
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Total Albums</h5>
-                <p class="card-text display-4">@albumCount</p>
-            </div>
-        </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Albums" Value="@albumCount.ToString()" Icon="💿" />
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Total Artists</h5>
-                <p class="card-text display-4">@artistCount</p>
-            </div>
-        </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Artists" Value="@artistCount.ToString()" Icon="🎤" />
+    </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Users" Value="@userCount.ToString()" Icon="👥" />
     </div>
 </div>
 
 <div class="row mt-4">
-    <div class="col-md-12">
+    <div class="col-md-6">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">System Information</h5>
-                <ul>
-                    <li>API Version: 2.0.0</li>
-                    <li>Environment: @environment</li>
-                    <li>Database: SQLite</li>
+                <ul class="list-unstyled">
+                    <li>📦 API Version: <strong>2.0.0</strong></li>
+                    <li>🌍 Environment: <strong>@environment</strong></li>
+                    <li>💾 Database: <strong>SQLite</strong></li>
+                    <li>🚀 .NET Version: <strong>9.0</strong></li>
                 </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Actions</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/admin/library"))">
+                        🎵 Manage Library
+                    </button>
+                    <button class="btn btn-secondary" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
+                        👥 Manage Users
+                    </button>
+                    <button class="btn btn-info text-white" @onclick="@(() => Navigation.NavigateTo("/admin/settings"))">
+                        ⚙️ Settings
+                    </button>
+                </div>
             </div>
         </div>
     </div>
