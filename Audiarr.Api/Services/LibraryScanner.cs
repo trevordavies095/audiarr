@@ -225,6 +225,7 @@ public class LibraryScanner : ILibraryScanner
                 NameNormalized = normalized
             };
             await _context.Artists.AddAsync(artist, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken); // Save immediately to prevent duplicates
             _logger.LogDebug("Created new artist: {Name}", name);
         }
 
@@ -247,6 +248,7 @@ public class LibraryScanner : ILibraryScanner
                 ReleaseYear = year > 0 ? (int)year : null
             };
             await _context.Albums.AddAsync(album, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken); // Save immediately to prevent duplicates
             _logger.LogDebug("Created new album: {Title}", title);
         }
 
