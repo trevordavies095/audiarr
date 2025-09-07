@@ -172,14 +172,29 @@ public static class AlbumEndpoints
                 return Results.NotFound(new { error = "No cover art available" });
             }
 
-            // Check if cover art file exists
-            if (!File.Exists(album.CoverArtPath))
+            // Convert the stored path (/artwork/filename.jpg) to actual file path
+            string actualFilePath;
+            if (album.CoverArtPath.StartsWith("/artwork/"))
             {
-                return Results.NotFound(new { error = "Cover art file not found" });
+                var filename = album.CoverArtPath.Substring("/artwork/".Length);
+                var baseDir = env.IsDevelopment() 
+                    ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
+                    : "/data";
+                actualFilePath = Path.Combine(baseDir, "artwork", filename);
+            }
+            else
+            {
+                actualFilePath = album.CoverArtPath;
             }
 
-            var fileBytes = await File.ReadAllBytesAsync(album.CoverArtPath);
-            var contentType = GetImageContentType(album.CoverArtPath);
+            // Check if cover art file exists
+            if (!File.Exists(actualFilePath))
+            {
+                return Results.NotFound(new { error = $"Cover art file not found: {album.CoverArtPath}" });
+            }
+
+            var fileBytes = await File.ReadAllBytesAsync(actualFilePath);
+            var contentType = GetImageContentType(actualFilePath);
             
             return Results.File(fileBytes, contentType);
         })
