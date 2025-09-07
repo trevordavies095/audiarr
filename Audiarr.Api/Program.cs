@@ -79,6 +79,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
+// Add Blazor authentication
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, Audiarr.Api.Services.BlazorAuthStateProvider>();
+builder.Services.AddAuthorizationCore();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
