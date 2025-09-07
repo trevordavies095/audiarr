@@ -4,6 +4,7 @@ using Audiarr.Api.Data;
 using Audiarr.Api.Models;
 using Audiarr.Api.Models.Entities;
 using Audiarr.Api.Services.Interfaces;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using TagLib;
 using File = System.IO.File;
@@ -14,15 +15,18 @@ public class LibraryScanner : ILibraryScanner
 {
     private readonly AudiarrContext _context;
     private readonly ILogger<LibraryScanner> _logger;
+    private readonly IWebHostEnvironment _environment;
     private readonly HashSet<string> _audioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".alac", ".ape", ".wv", ".mka"
     };
+    private readonly string[] _artworkFileNames = { "cover.jpg", "folder.jpg", "album.jpg", "front.jpg", "cover.png", "folder.png", "album.png", "front.png" };
 
-    public LibraryScanner(AudiarrContext context, ILogger<LibraryScanner> logger)
+    public LibraryScanner(AudiarrContext context, ILogger<LibraryScanner> logger, IWebHostEnvironment environment)
     {
         _context = context;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task<ScanResult> ScanAsync(string libraryPath, IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
@@ -137,13 +141,27 @@ public class LibraryScanner : ILibraryScanner
             var album = await GetOrCreateAlbumAsync(albumTitle, artist.Id, tag.Year, cancellationToken);
 
             // Extract cover art if available
-            if (album.CoverArtPath == null && tag.Pictures.Length > 0)
+            if (album.CoverArtPath == null)
             {
-                var coverArtPath = await SaveCoverArtAsync(tag.Pictures[0], album.Id);
-                if (coverArtPath != null)
+                // First try embedded artwork
+                if (tag.Pictures.Length > 0)
                 {
-                    album.CoverArtPath = coverArtPath;
-                    _context.Albums.Update(album);
+                    var coverArtPath = await SaveCoverArtFromPictureAsync(tag.Pictures[0], album.Id);
+                    if (coverArtPath != null)
+                    {
+                        album.CoverArtPath = coverArtPath;
+                        _context.Albums.Update(album);
+                    }
+                }
+                // If no embedded artwork, look for folder artwork
+                else
+                {
+                    var folderArtworkPath = await FindAndSaveFolderArtworkAsync(filePath, album.Id);
+                    if (folderArtworkPath != null)
+                    {
+                        album.CoverArtPath = folderArtworkPath;
+                        _context.Albums.Update(album);
+                    }
                 }
             }
 
@@ -255,11 +273,20 @@ public class LibraryScanner : ILibraryScanner
         return album;
     }
 
-    private async Task<string?> SaveCoverArtAsync(IPicture picture, string albumId)
+    private string GetArtworkDirectory()
+    {
+        // Use Data/artwork for development, /data/artwork for Docker
+        var baseDir = _environment.IsDevelopment() 
+            ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
+            : "/data";
+        return Path.Combine(baseDir, "artwork");
+    }
+
+    private async Task<string?> SaveCoverArtFromPictureAsync(IPicture picture, string albumId)
     {
         try
         {
-            var coverArtDir = Path.Combine("/data", "artwork");
+            var coverArtDir = GetArtworkDirectory();
             Directory.CreateDirectory(coverArtDir);
 
             var extension = picture.MimeType switch
@@ -275,13 +302,102 @@ public class LibraryScanner : ILibraryScanner
             var filePath = Path.Combine(coverArtDir, fileName);
 
             await File.WriteAllBytesAsync(filePath, picture.Data.Data);
-            _logger.LogDebug("Saved cover art for album: {AlbumId}", albumId);
+            _logger.LogDebug("Saved embedded cover art for album: {AlbumId}", albumId);
 
             return $"/artwork/{fileName}";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error saving cover art for album: {AlbumId}", albumId);
+            _logger.LogError(ex, "Error saving embedded cover art for album: {AlbumId}", albumId);
+            return null;
+        }
+    }
+
+    private async Task<string?> FindAndSaveFolderArtworkAsync(string audioFilePath, string albumId)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(audioFilePath);
+            if (string.IsNullOrEmpty(directory))
+                return null;
+
+            // Look for common artwork file names in the same directory
+            foreach (var artworkFileName in _artworkFileNames)
+            {
+                var artworkPath = Path.Combine(directory, artworkFileName);
+                if (File.Exists(artworkPath))
+                {
+                    return await SaveCoverArtFromFileAsync(artworkPath, albumId);
+                }
+            }
+
+            // Check for any jpg/png files in the directory
+            var imageFiles = Directory.GetFiles(directory, "*.jpg")
+                .Concat(Directory.GetFiles(directory, "*.jpeg"))
+                .Concat(Directory.GetFiles(directory, "*.png"))
+                .OrderBy(f => f) // Use first alphabetically
+                .FirstOrDefault();
+
+            if (imageFiles != null)
+            {
+                return await SaveCoverArtFromFileAsync(imageFiles, albumId);
+            }
+
+            // Check for Artwork subdirectory
+            var artworkDir = Path.Combine(directory, "Artwork");
+            if (Directory.Exists(artworkDir))
+            {
+                var artworkFile = Directory.GetFiles(artworkDir, "*.jpg")
+                    .Concat(Directory.GetFiles(artworkDir, "*.jpeg"))
+                    .Concat(Directory.GetFiles(artworkDir, "*.png"))
+                    .Where(f => Path.GetFileName(f).ToLower().Contains("front") || 
+                               Path.GetFileName(f).ToLower().Contains("cover"))
+                    .FirstOrDefault();
+
+                if (artworkFile == null)
+                {
+                    artworkFile = Directory.GetFiles(artworkDir, "*.jpg")
+                        .Concat(Directory.GetFiles(artworkDir, "*.jpeg"))
+                        .Concat(Directory.GetFiles(artworkDir, "*.png"))
+                        .OrderBy(f => f)
+                        .FirstOrDefault();
+                }
+
+                if (artworkFile != null)
+                {
+                    return await SaveCoverArtFromFileAsync(artworkFile, albumId);
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding folder artwork for album: {AlbumId}", albumId);
+            return null;
+        }
+    }
+
+    private async Task<string?> SaveCoverArtFromFileAsync(string sourceFilePath, string albumId)
+    {
+        try
+        {
+            var coverArtDir = GetArtworkDirectory();
+            Directory.CreateDirectory(coverArtDir);
+
+            var extension = Path.GetExtension(sourceFilePath).ToLower();
+            var fileName = $"{albumId}{extension}";
+            var destPath = Path.Combine(coverArtDir, fileName);
+
+            // Copy the file to our artwork directory
+            File.Copy(sourceFilePath, destPath, overwrite: true);
+            _logger.LogDebug("Saved folder cover art for album: {AlbumId} from {Source}", albumId, sourceFilePath);
+
+            return $"/artwork/{fileName}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving folder cover art for album: {AlbumId}", albumId);
             return null;
         }
     }
