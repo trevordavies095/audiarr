@@ -81,6 +81,7 @@ builder.Services.AddCors(options =>
 // Add Blazor Server services
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
+builder.Services.AddSignalR();
 
 // Add Blazor authentication
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, Audiarr.Api.Services.BlazorAuthStateProvider>();
@@ -133,6 +134,7 @@ app.MapScannerEndpoints();
 
 // Map Blazor Server endpoints
 app.MapBlazorHub();
+app.MapHub<Audiarr.Api.Hubs.ScanHub>("/hubs/scan");
 app.MapFallbackToPage("/admin/{*catchall}", "/_Host");
 
 app.Run();
