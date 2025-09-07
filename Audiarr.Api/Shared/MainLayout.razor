@@ -5,42 +5,46 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <div class="d-flex align-items-center w-100">
-                <div class="flex-grow-1 me-3">
-                    <AuthorizeView>
-                        <Authorized>
-                            <SearchBox />
-                        </Authorized>
-                    </AuthorizeView>
-                </div>
-                <div>
-                    <AuthorizeView>
-                        <Authorized>
-                            <span class="me-3">Welcome, @context.User.Identity?.Name!</span>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Logout</button>
-                        </Authorized>
-                        <NotAuthorized>
-                            <span>Audiarr Admin Panel</span>
-                        </NotAuthorized>
-                    </AuthorizeView>
-                </div>
-            </div>
+<CascadingValue Value="miniPlayer">
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <div class="d-flex align-items-center w-100">
+                    <div class="flex-grow-1 me-3">
+                        <AuthorizeView>
+                            <Authorized>
+                                <SearchBox />
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
+                    <div>
+                        <AuthorizeView>
+                            <Authorized>
+                                <span class="me-3">Welcome, @context.User.Identity?.Name!</span>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Logout</button>
+                            </Authorized>
+                            <NotAuthorized>
+                                <span>Audiarr Admin Panel</span>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+</CascadingValue>
 
 @code {
+    private MiniPlayer? miniPlayer;
+    
     private async Task Logout()
     {
         if (AuthStateProvider is Audiarr.Api.Services.BlazorAuthStateProvider blazorAuthProvider)
@@ -50,3 +54,5 @@
         Navigation.NavigateTo("/admin/login", true);
     }
 }
+
+<MiniPlayer @ref="miniPlayer" />

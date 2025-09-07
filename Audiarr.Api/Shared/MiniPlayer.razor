@@ -1,0 +1,468 @@
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
+
+<div class="mini-player @(isVisible ? "visible" : "")" @onclick:stopPropagation="true">
+    <div class="player-content">
+        @if (currentTrack != null)
+        {
+            <div class="track-info">
+                <div class="track-title">@currentTrack.Title</div>
+                <div class="track-artist">@currentTrack.ArtistName</div>
+            </div>
+        }
+        else
+        {
+            <div class="track-info">
+                <div class="track-title">No track selected</div>
+            </div>
+        }
+        
+        <div class="player-controls">
+            <button class="btn-control" @onclick="Previous" disabled="@(!hasPrevious)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4 4a.5.5 0 0 1 1 0v3.248l6.267-3.636c.52-.302 1.233.043 1.233.696v7.384c0 .653-.713.998-1.233.696L5 8.752V12a.5.5 0 0 1-1 0V4zm7.5.633L5.696 8l5.804 3.367V4.633z"/>
+                </svg>
+            </button>
+            <button class="btn-control btn-play" @onclick="PlayPause">
+                @if (isPlaying)
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                    </svg>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M10.804 8 5 4.633v6.734L10.804 8zm.792-.696a.802.802 0 0 1 0 1.392l-6.363 3.692C4.713 12.69 4 12.345 4 11.692V4.308c0-.653.713-.998 1.233-.696l6.363 3.692z"/>
+                    </svg>
+                }
+            </button>
+            <button class="btn-control" @onclick="Next" disabled="@(!hasNext)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M12.5 4a.5.5 0 0 0-1 0v3.248L5.233 3.612C4.713 3.31 4 3.655 4 4.308v7.384c0 .653.713.998 1.233.696L11.5 8.752V12a.5.5 0 0 0 1 0V4zM5 4.633 10.804 8 5 11.367V4.633z"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="player-progress">
+            <span class="time-current">@FormatTime(currentTime)</span>
+            <input type="range" class="progress-bar" min="0" max="@duration" value="@currentTime" 
+                   @onchange="OnSeek" @oninput="OnSeek" />
+            <span class="time-total">@FormatTime(duration)</span>
+        </div>
+        
+        <div class="player-volume">
+            <i class="bi bi-volume-up-fill"></i>
+            <input type="range" class="volume-slider" min="0" max="100" value="@volume" 
+                   @onchange="OnVolumeChange" />
+        </div>
+    </div>
+</div>
+
+<audio @ref="audioElement" @key="audioElementKey"></audio>
+
+<style>
+    .mini-player {
+        position: fixed;
+        bottom: -100px;
+        left: 0;
+        right: 0;
+        height: 80px;
+        background: linear-gradient(to bottom, #2c3e50, #1a252f);
+        border-top: 1px solid #34495e;
+        transition: bottom 0.3s ease;
+        z-index: 1000;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .mini-player.visible {
+        bottom: 0;
+    }
+    
+    .player-content {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0 20px;
+        gap: 20px;
+        color: white;
+    }
+    
+    .track-info {
+        flex: 0 0 250px;
+    }
+    
+    .track-title {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .track-artist {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .player-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .player-controls .btn-control {
+        color: white;
+        border: none;
+        background: rgba(255, 255, 255, 0.15);
+        width: 36px;
+        height: 36px;
+        transition: all 0.2s;
+        padding: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    
+    .player-controls .btn-control:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.25);
+        transform: scale(1.1);
+    }
+    
+    .player-controls .btn-control:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .player-controls .btn-play {
+        width: 48px;
+        height: 48px;
+        background: #3498db;
+        color: white;
+    }
+    
+    .player-controls .btn-play:hover {
+        background: #2980b9;
+        transform: scale(1.12);
+    }
+    
+    .player-controls svg {
+        pointer-events: none;
+    }
+    
+    .player-progress {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .time-current, .time-total {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        min-width: 45px;
+    }
+    
+    .progress-bar {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255,255,255,0.2);
+        outline: none;
+        border-radius: 2px;
+    }
+    
+    .progress-bar::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #3498db;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+    
+    .progress-bar::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        background: #3498db;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+    }
+    
+    .player-volume {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 150px;
+    }
+    
+    .volume-slider {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255,255,255,0.2);
+        outline: none;
+        border-radius: 2px;
+    }
+    
+    .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+    
+    .volume-slider::-moz-range-thumb {
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+    }
+</style>
+
+@code {
+    private ElementReference audioElement;
+    private string audioElementKey = Guid.NewGuid().ToString();
+    private IJSObjectReference? audioModule;
+    private System.Threading.Timer? progressTimer;
+    
+    private bool isVisible = false;
+    private bool isPlaying = false;
+    private double currentTime = 0;
+    private double duration = 0;
+    private int volume = 70;
+    
+    private TrackInfo? currentTrack;
+    private string? nextTrackId;
+    private string? previousTrackId;
+    private bool hasNext => !string.IsNullOrEmpty(nextTrackId);
+    private bool hasPrevious => !string.IsNullOrEmpty(previousTrackId);
+    
+    public class TrackInfo
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string ArtistName { get; set; } = "";
+        public string? AlbumTitle { get; set; }
+        public string StreamUrl { get; set; } = "";
+        public int DurationMs { get; set; }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            audioModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/audio-player.js");
+            await audioModule.InvokeVoidAsync("initializeAudioPlayer", audioElement);
+            
+            // Set initial volume
+            await audioModule.InvokeVoidAsync("setVolume", audioElement, volume / 100.0);
+        }
+    }
+    
+    public async Task PlayTrack(string trackId)
+    {
+        try
+        {
+            // Get track play context
+            var response = await Http.GetAsync($"/api/v2/tracks/{trackId}/play");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var data = JsonDocument.Parse(json);
+                var track = data.RootElement.GetProperty("track");
+                
+                currentTrack = new TrackInfo
+                {
+                    Id = track.GetProperty("id").GetString() ?? "",
+                    Title = track.GetProperty("title").GetString() ?? "",
+                    ArtistName = track.GetProperty("artistName").GetString() ?? "",
+                    AlbumTitle = track.TryGetProperty("albumTitle", out var album) ? album.GetString() : null,
+                    StreamUrl = track.GetProperty("streamUrl").GetString() ?? "",
+                    DurationMs = track.GetProperty("durationMs").GetInt32()
+                };
+                
+                nextTrackId = data.RootElement.TryGetProperty("nextTrackId", out var next) ? next.GetString() : null;
+                previousTrackId = data.RootElement.TryGetProperty("previousTrackId", out var prev) ? prev.GetString() : null;
+                
+                duration = currentTrack.DurationMs / 1000.0;
+                currentTime = 0;
+                
+                // Load and play the track
+                await LoadAndPlay();
+                
+                // Show the player
+                isVisible = true;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error playing track: {ex.Message}");
+        }
+    }
+    
+    public async Task PlayAlbum(string albumId)
+    {
+        try
+        {
+            // Get album play context
+            var response = await Http.GetAsync($"/api/v2/albums/{albumId}/play");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var data = JsonDocument.Parse(json);
+                var tracks = data.RootElement.GetProperty("tracks").EnumerateArray().ToList();
+                
+                if (tracks.Any())
+                {
+                    // Play the first track
+                    var firstTrack = tracks[0];
+                    currentTrack = new TrackInfo
+                    {
+                        Id = firstTrack.GetProperty("id").GetString() ?? "",
+                        Title = firstTrack.GetProperty("title").GetString() ?? "",
+                        ArtistName = firstTrack.GetProperty("artistName").GetString() ?? "",
+                        StreamUrl = firstTrack.GetProperty("streamUrl").GetString() ?? "",
+                        DurationMs = firstTrack.GetProperty("durationMs").GetInt32()
+                    };
+                    
+                    nextTrackId = firstTrack.TryGetProperty("nextTrackId", out var next) ? next.GetString() : null;
+                    previousTrackId = null;
+                    
+                    duration = currentTrack.DurationMs / 1000.0;
+                    currentTime = 0;
+                    
+                    await LoadAndPlay();
+                    isVisible = true;
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error playing album: {ex.Message}");
+        }
+    }
+    
+    private async Task LoadAndPlay()
+    {
+        if (audioModule != null && currentTrack != null)
+        {
+            await audioModule.InvokeVoidAsync("loadTrack", audioElement, currentTrack.StreamUrl);
+            await audioModule.InvokeVoidAsync("play", audioElement);
+            isPlaying = true;
+            
+            // Start progress timer
+            progressTimer?.Dispose();
+            progressTimer = new System.Threading.Timer(async _ =>
+            {
+                if (isPlaying && audioModule != null)
+                {
+                    try
+                    {
+                        currentTime = await audioModule.InvokeAsync<double>("getCurrentTime", audioElement);
+                        
+                        // Check if track ended
+                        if (currentTime >= duration - 0.5 && hasNext)
+                        {
+                            await InvokeAsync(async () => await Next());
+                        }
+                        
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    catch { }
+                }
+            }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(500));
+        }
+    }
+    
+    private async Task PlayPause()
+    {
+        if (audioModule == null || currentTrack == null) return;
+        
+        if (isPlaying)
+        {
+            await audioModule.InvokeVoidAsync("pause", audioElement);
+            isPlaying = false;
+        }
+        else
+        {
+            await audioModule.InvokeVoidAsync("play", audioElement);
+            isPlaying = true;
+        }
+    }
+    
+    private async Task Previous()
+    {
+        if (hasPrevious && previousTrackId != null)
+        {
+            await PlayTrack(previousTrackId);
+        }
+    }
+    
+    private async Task Next()
+    {
+        if (hasNext && nextTrackId != null)
+        {
+            await PlayTrack(nextTrackId);
+        }
+    }
+    
+    private async Task OnSeek(ChangeEventArgs e)
+    {
+        if (audioModule != null && e.Value != null)
+        {
+            var newTime = Convert.ToDouble(e.Value);
+            currentTime = newTime;
+            await audioModule.InvokeVoidAsync("seek", audioElement, newTime);
+        }
+    }
+    
+    private async Task OnVolumeChange(ChangeEventArgs e)
+    {
+        if (audioModule != null && e.Value != null)
+        {
+            volume = Convert.ToInt32(e.Value);
+            await audioModule.InvokeVoidAsync("setVolume", audioElement, volume / 100.0);
+        }
+    }
+    
+    private string FormatTime(double seconds)
+    {
+        var time = TimeSpan.FromSeconds(seconds);
+        return $"{(int)time.TotalMinutes}:{time.Seconds:D2}";
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        progressTimer?.Dispose();
+        
+        if (audioModule != null)
+        {
+            try
+            {
+                await audioModule.InvokeVoidAsync("cleanup", audioElement);
+                await audioModule.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+}
