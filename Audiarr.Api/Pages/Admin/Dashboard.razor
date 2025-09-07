@@ -1,0 +1,66 @@
+@page "/admin/dashboard"
+@page "/admin/"
+
+<PageTitle>Dashboard - Audiarr Admin</PageTitle>
+
+<h1>Dashboard</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Tracks</h5>
+                <p class="card-text display-4">@trackCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Albums</h5>
+                <p class="card-text display-4">@albumCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Artists</h5>
+                <p class="card-text display-4">@artistCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">System Information</h5>
+                <ul>
+                    <li>API Version: 2.0.0</li>
+                    <li>Environment: @environment</li>
+                    <li>Database: SQLite</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int trackCount = 0;
+    private int albumCount = 0;
+    private int artistCount = 0;
+    private string environment = "Development";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // TODO: Fetch actual counts from database
+        // For now, using placeholder values
+        trackCount = 0;
+        albumCount = 0;
+        artistCount = 0;
+        
+        await base.OnInitializedAsync();
+    }
+}
