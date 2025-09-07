@@ -66,3 +66,13 @@ Data/
 ## Ignore artwork directory
 artwork/
 */artwork/
+
+## Ignore environment files
+.env
+.env.*
+!.env.example
+
+## Ignore logs
+Logs/
+*/Logs/
+*.log

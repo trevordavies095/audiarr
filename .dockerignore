@@ -26,9 +26,16 @@ LICENSE
 README.md
 .gitattributes
 archive/
+**/test-music/
 test-music/
 *.db
 *.db-shm
 *.db-wal
 CLAUDE_REQUIREMENTS/
 *.md
+**/Data/
+Data/
+**/Logs/
+Logs/
+**/artwork/
+artwork/
