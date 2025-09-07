@@ -1,5 +1,7 @@
 using System.Threading.Channels;
+using Audiarr.Api.Hubs;
 using Audiarr.Api.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Audiarr.Api.Services;
 
@@ -8,13 +10,16 @@ public class ScannerBackgroundService : BackgroundService
     private readonly Channel<ScanRequest> _queue;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ScannerBackgroundService> _logger;
+    private readonly IHubContext<ScanHub> _hubContext;
 
     public ScannerBackgroundService(
         IServiceProvider serviceProvider,
-        ILogger<ScannerBackgroundService> logger)
+        ILogger<ScannerBackgroundService> logger,
+        IHubContext<ScanHub> hubContext)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _hubContext = hubContext;
         
         // Create unbounded channel for scan requests
         _queue = Channel.CreateUnbounded<ScanRequest>();
@@ -49,16 +54,35 @@ public class ScannerBackgroundService : BackgroundService
                 using var scope = _serviceProvider.CreateScope();
                 var scanner = scope.ServiceProvider.GetRequiredService<ILibraryScanner>();
                 
-                var progress = new Progress<ScanProgress>(p =>
+                var progress = new Progress<ScanProgress>(async p =>
                 {
                     _logger.LogDebug("Scan progress: {Percent:F1}% ({Current}/{Total})", 
                         p.PercentComplete, p.ProcessedFiles, p.TotalFiles);
+                    
+                    // Send progress to SignalR clients
+                    await _hubContext.Clients.All.SendAsync("ScanProgress", new
+                    {
+                        processed = p.ProcessedFiles,
+                        total = p.TotalFiles,
+                        message = $"Processing: {p.CurrentFile}",
+                        percentComplete = p.PercentComplete
+                    });
                 });
 
                 var result = await scanner.ScanAsync(request.LibraryPath, progress, stoppingToken);
                 
                 _logger.LogInformation("Scan completed: {RequestId}. Duration: {Duration}, New: {New}, Updated: {Updated}, Errors: {Errors}",
                     request.RequestId, result.Duration, result.NewTracks, result.UpdatedTracks, result.Errors);
+                
+                // Send completion to SignalR clients
+                await _hubContext.Clients.All.SendAsync("ScanComplete", new
+                {
+                    totalFiles = result.ProcessedFiles,
+                    newTracks = result.NewTracks,
+                    updatedTracks = result.UpdatedTracks,
+                    errors = result.Errors,
+                    completedAt = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
