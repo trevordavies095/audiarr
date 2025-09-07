@@ -1,0 +1,372 @@
+@page "/admin/logs"
+@using Microsoft.AspNetCore.Authorization
+@using System.IO
+@using System.Text.RegularExpressions
+@attribute [Authorize]
+@inject IWebHostEnvironment Environment
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Logs - Audiarr Admin</PageTitle>
+
+<h1>Application Logs</h1>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Select Log File:</label>
+        <select class="form-select" @bind="selectedLogFile" @bind:after="LoadLogFile">
+            <option value="">-- Select a log file --</option>
+            @foreach (var file in logFiles)
+            {
+                <option value="@file.FullName">@file.Name (@FormatFileSize(file.Length))</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Log Level Filter:</label>
+        <select class="form-select" @bind="logLevelFilter" @bind:after="FilterLogs">
+            <option value="">All Levels</option>
+            <option value="DBG">Debug</option>
+            <option value="INF">Information</option>
+            <option value="WRN">Warning</option>
+            <option value="ERR">Error</option>
+            <option value="FTL">Fatal</option>
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Search:</label>
+        <input type="text" class="form-control" placeholder="Search logs..." 
+               @bind="searchQuery" @bind:event="oninput" @onkeyup="@(async (e) => { if (e.Key == "Enter") FilterLogs(); })">
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="btn-group" role="group">
+            <button class="btn btn-primary" @onclick="RefreshLogs" disabled="@(string.IsNullOrEmpty(selectedLogFile))">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <button class="btn btn-secondary" @onclick="DownloadLog" disabled="@(string.IsNullOrEmpty(selectedLogFile))">
+                <i class="bi bi-download"></i> Download
+            </button>
+            <button class="btn btn-outline-danger" @onclick="ClearLogs" disabled="@(string.IsNullOrEmpty(selectedLogFile))">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <div class="form-check form-switch d-inline-block">
+            <input class="form-check-input" type="checkbox" id="autoRefresh" @bind="autoRefresh">
+            <label class="form-check-label" for="autoRefresh">
+                Auto-refresh (5s)
+            </label>
+        </div>
+        <div class="form-check form-switch d-inline-block ms-3">
+            <input class="form-check-input" type="checkbox" id="tailMode" @bind="tailMode">
+            <label class="form-check-label" for="tailMode">
+                Tail mode
+            </label>
+        </div>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading logs...</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(selectedLogFile) && filteredLogEntries.Any())
+{
+    <div class="alert alert-info">
+        Showing @filteredLogEntries.Count of @logEntries.Count entries
+        @if (tailMode)
+        {
+            <span class="badge bg-warning ms-2">TAIL MODE</span>
+        }
+    </div>
+    
+    <div class="log-viewer">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th style="width: 180px;">Timestamp</th>
+                    <th style="width: 80px;">Level</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in (tailMode ? filteredLogEntries.TakeLast(100) : filteredLogEntries.Take(1000)))
+                {
+                    <tr class="@GetLogLevelClass(entry.Level)">
+                        <td class="text-muted">@entry.Timestamp</td>
+                        <td>
+                            <span class="badge @GetLogLevelBadgeClass(entry.Level)">@entry.Level</span>
+                        </td>
+                        <td class="log-message">
+                            <pre>@entry.Message</pre>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    
+    @if (filteredLogEntries.Count > 1000 && !tailMode)
+    {
+        <div class="alert alert-warning mt-3">
+            Showing first 1000 entries. Enable tail mode to see the latest entries or download the full log.
+        </div>
+    }
+}
+else if (!string.IsNullOrEmpty(selectedLogFile))
+{
+    <div class="alert alert-info">
+        No log entries found matching your criteria.
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        Select a log file to view its contents.
+    </div>
+}
+
+<style>
+    .log-viewer {
+        max-height: 600px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background: #f8f9fa;
+    }
+    
+    .log-message pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 0.875rem;
+        background: transparent;
+    }
+    
+    .log-level-error {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .log-level-warning {
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    
+    .log-level-fatal {
+        background-color: rgba(220, 53, 69, 0.2);
+        font-weight: bold;
+    }
+</style>
+
+@code {
+    private List<FileInfo> logFiles = new();
+    private string selectedLogFile = "";
+    private string logLevelFilter = "";
+    private string searchQuery = "";
+    private bool autoRefresh = false;
+    private bool tailMode = false;
+    private bool isLoading = false;
+    
+    private List<LogEntry> logEntries = new();
+    private List<LogEntry> filteredLogEntries = new();
+    
+    private System.Threading.Timer? refreshTimer;
+    
+    public class LogEntry
+    {
+        public string Timestamp { get; set; } = "";
+        public string Level { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string RawLine { get; set; } = "";
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        LoadLogFiles();
+        
+        // Set up auto-refresh timer
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            if (autoRefresh && !string.IsNullOrEmpty(selectedLogFile))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadLogFile();
+                    StateHasChanged();
+                });
+            }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+    
+    private void LoadLogFiles()
+    {
+        var logPath = Environment.IsDevelopment() 
+            ? Path.Combine(Directory.GetCurrentDirectory(), "Logs")
+            : "/data/logs";
+            
+        if (Directory.Exists(logPath))
+        {
+            var directory = new DirectoryInfo(logPath);
+            logFiles = directory.GetFiles("*.log")
+                .OrderByDescending(f => f.LastWriteTime)
+                .ToList();
+        }
+    }
+    
+    private async Task LoadLogFile()
+    {
+        if (string.IsNullOrEmpty(selectedLogFile) || !File.Exists(selectedLogFile))
+            return;
+            
+        isLoading = true;
+        logEntries.Clear();
+        
+        try
+        {
+            var lines = await File.ReadAllLinesAsync(selectedLogFile);
+            var logPattern = @"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\] \[(\w{3})\] (.+)$";
+            
+            LogEntry? currentEntry = null;
+            
+            foreach (var line in lines)
+            {
+                var match = Regex.Match(line, logPattern);
+                if (match.Success)
+                {
+                    // Save previous entry if exists
+                    if (currentEntry != null)
+                    {
+                        logEntries.Add(currentEntry);
+                    }
+                    
+                    // Start new entry
+                    currentEntry = new LogEntry
+                    {
+                        Timestamp = match.Groups[1].Value,
+                        Level = match.Groups[2].Value,
+                        Message = match.Groups[3].Value,
+                        RawLine = line
+                    };
+                }
+                else if (currentEntry != null)
+                {
+                    // Continuation of previous log entry (stack trace, etc.)
+                    currentEntry.Message += "\n" + line;
+                    currentEntry.RawLine += "\n" + line;
+                }
+            }
+            
+            // Add last entry
+            if (currentEntry != null)
+            {
+                logEntries.Add(currentEntry);
+            }
+            
+            FilterLogs();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading log file: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    private void FilterLogs()
+    {
+        filteredLogEntries = logEntries
+            .Where(e => string.IsNullOrEmpty(logLevelFilter) || e.Level == logLevelFilter)
+            .Where(e => string.IsNullOrEmpty(searchQuery) || 
+                       e.Message.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                       e.Timestamp.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+    
+    private async Task RefreshLogs()
+    {
+        LoadLogFiles();
+        await LoadLogFile();
+    }
+    
+    private void DownloadLog()
+    {
+        if (!string.IsNullOrEmpty(selectedLogFile) && File.Exists(selectedLogFile))
+        {
+            var fileName = Path.GetFileName(selectedLogFile);
+            // In a real implementation, you'd create an endpoint to download the file
+            JSRuntime.InvokeVoidAsync("window.open", $"/api/logs/download?file={fileName}", "_blank");
+        }
+    }
+    
+    private async Task ClearLogs()
+    {
+        if (!string.IsNullOrEmpty(selectedLogFile) && File.Exists(selectedLogFile))
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+                "Are you sure you want to clear this log file? This action cannot be undone.");
+                
+            if (confirmed)
+            {
+                try
+                {
+                    await File.WriteAllTextAsync(selectedLogFile, string.Empty);
+                    await LoadLogFile();
+                }
+                catch (Exception ex)
+                {
+                    await JSRuntime.InvokeVoidAsync("console.error", $"Error clearing log file: {ex.Message}");
+                }
+            }
+        }
+    }
+    
+    private string GetLogLevelClass(string level)
+    {
+        return level switch
+        {
+            "ERR" => "log-level-error",
+            "WRN" => "log-level-warning",
+            "FTL" => "log-level-fatal",
+            _ => ""
+        };
+    }
+    
+    private string GetLogLevelBadgeClass(string level)
+    {
+        return level switch
+        {
+            "DBG" => "bg-secondary",
+            "INF" => "bg-info",
+            "WRN" => "bg-warning",
+            "ERR" => "bg-danger",
+            "FTL" => "bg-dark",
+            _ => "bg-light"
+        };
+    }
+    
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+    
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}

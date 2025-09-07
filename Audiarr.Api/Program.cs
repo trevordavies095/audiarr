@@ -7,8 +7,42 @@ using Audiarr.Api.Endpoints;
 using Audiarr.Api.Models.Configuration;
 using Audiarr.Api.Services;
 using Audiarr.Api.Services.Interfaces;
+using Serilog;
+using Serilog.Events;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configure Serilog
+var logPath = Path.Combine(
+    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" 
+        ? Path.Combine(Directory.GetCurrentDirectory(), "Logs")
+        : "/data/logs",
+    "audiarr-.log");
+
+Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        logPath,
+        rollingInterval: RollingInterval.Day,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        retainedFileCountLimit: 30,
+        fileSizeLimitBytes: 10485760, // 10MB
+        rollOnFileSizeLimit: true)
+    .CreateLogger();
+
+try
+{
+    Log.Information("Starting Audiarr API");
+    
+    var builder = WebApplication.CreateBuilder(args);
+    
+    // Add Serilog to the container
+    builder.Host.UseSerilog();
 
 // Add services to the container
 builder.Services.AddHealthChecks();
@@ -108,6 +142,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
+// Add Serilog request logging (moved here for proper ordering)
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+    options.GetLevel = (httpContext, elapsed, ex) => ex != null 
+        ? LogEventLevel.Error 
+        : httpContext.Response.StatusCode > 499 
+            ? LogEventLevel.Error 
+            : LogEventLevel.Information;
+});
+
 // Serve static files from wwwroot
 app.UseStaticFiles();
 
@@ -154,4 +199,14 @@ app.MapBlazorHub();
 app.MapHub<Audiarr.Api.Hubs.ScanHub>("/hubs/scan");
 app.MapFallbackToPage("/admin/{*catchall}", "/_Host");
 
-app.Run();
+    Log.Information("Audiarr API started successfully");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application start-up failed");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
