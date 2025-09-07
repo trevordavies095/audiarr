@@ -1,7 +1,21 @@
+using Microsoft.EntityFrameworkCore;
+using Audiarr.Api.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddHealthChecks();
+
+// Configure SQLite database
+var dataPath = builder.Environment.IsDevelopment() 
+    ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
+    : "/data";
+Directory.CreateDirectory(dataPath);
+var connectionString = $"Data Source={Path.Combine(dataPath, "audiarr.db")}";
+
+builder.Services.AddDbContext<AudiarrContext>(options =>
+    options.UseSqlite(connectionString));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
