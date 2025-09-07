@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@using Audiarr.Api.Components
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
@@ -11,15 +12,26 @@
 
     <main>
         <div class="top-row px-4">
-            <AuthorizeView>
-                <Authorized>
-                    <span class="me-3">Welcome, @context.User.Identity?.Name!</span>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Logout</button>
-                </Authorized>
-                <NotAuthorized>
-                    <span>Audiarr Admin Panel</span>
-                </NotAuthorized>
-            </AuthorizeView>
+            <div class="d-flex align-items-center w-100">
+                <div class="flex-grow-1 me-3">
+                    <AuthorizeView>
+                        <Authorized>
+                            <SearchBox />
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+                <div>
+                    <AuthorizeView>
+                        <Authorized>
+                            <span class="me-3">Welcome, @context.User.Identity?.Name!</span>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Logout</button>
+                        </Authorized>
+                        <NotAuthorized>
+                            <span>Audiarr Admin Panel</span>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </div>
         </div>
 
         <article class="content px-4">
