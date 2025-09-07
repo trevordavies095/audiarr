@@ -1,0 +1,349 @@
+@page "/admin/albums/{Id}"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Audiarr.Api.Data
+@using Audiarr.Api.Models.Entities
+@using Audiarr.Api.Shared
+@attribute [Authorize]
+@inject AudiarrContext DbContext
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>@(album?.Title ?? "Album") - Audiarr Admin</PageTitle>
+
+@if (isLoading)
+{
+    <div class="text-center mt-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (album == null)
+{
+    <div class="alert alert-danger mt-5">
+        <h4>Album Not Found</h4>
+        <p>The album you're looking for doesn't exist.</p>
+        <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/admin/albums"))">
+            Back to Albums
+        </button>
+    </div>
+}
+else
+{
+    <div class="album-header mb-4">
+        <button class="btn btn-outline-light mb-3" @onclick="@(() => Navigation.NavigateTo("/admin/albums"))">
+            <i class="bi bi-arrow-left"></i> Back to Albums
+        </button>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="album-artwork">
+                    @if (!string.IsNullOrEmpty(album.CoverArtPath))
+                    {
+                        <img src="@($"/api/v2/albums/{album.Id}/cover")" 
+                             class="img-fluid rounded shadow" 
+                             alt="@album.Title cover"
+                             @onerror="@((e) => HandleImageError(e))">
+                    }
+                    else
+                    {
+                        <div class="album-artwork-placeholder rounded shadow d-flex align-items-center justify-content-center">
+                            <span class="display-1 text-muted">💿</span>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="col-md-8">
+                <h1 class="mb-2">@album.Title</h1>
+                <h3 class="mb-3">
+                    <a href="/admin/artists/@album.ArtistId" class="text-decoration-none text-light">
+                        @album.Artist?.Name
+                    </a>
+                </h3>
+                <div class="album-info mb-3">
+                    @if (album.Year.HasValue)
+                    {
+                        <span class="badge bg-light text-dark me-2">@album.Year</span>
+                    }
+                    @if (!string.IsNullOrEmpty(firstTrackGenre))
+                    {
+                        <span class="badge bg-light text-dark me-2">@firstTrackGenre</span>
+                    }
+                    <span class="badge bg-light text-dark">@tracks.Count track@(tracks.Count != 1 ? "s" : "")</span>
+                    <span class="badge bg-light text-dark">@FormatDuration(totalDuration)</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-lg" @onclick="PlayAlbum">
+                        <i class="bi bi-play-fill"></i> Play Album
+                    </button>
+                    <button class="btn btn-outline-light btn-lg" @onclick="ShufflePlay">
+                        <i class="bi bi-shuffle"></i> Shuffle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tracks-section">
+        <h3 class="mb-3">Tracks</h3>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="50">#</th>
+                        <th>Title</th>
+                        <th width="100">Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var track in tracks)
+                    {
+                        <tr class="track-row" @ondblclick="() => PlayTrack(track.Id)">
+                            <td class="text-muted">
+                                <div class="track-number-cell">
+                                    <span class="track-number">@track.TrackNumber</span>
+                                    <button class="play-icon" @onclick="() => PlayTrack(track.Id)" @onclick:stopPropagation="true" title="Play">
+                                        <i class="bi bi-play-fill"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="track-title">@track.Title</div>
+                                @if (!string.IsNullOrEmpty(track.AlbumArtist) && track.AlbumArtist != album.Artist?.Name)
+                                {
+                                    <small class="text-muted">@track.AlbumArtist</small>
+                                }
+                            </td>
+                            <td class="text-muted">@FormatDuration(track.DurationMs)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<style>
+    .album-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 2rem;
+        border-radius: 0.5rem;
+        color: white;
+        margin-bottom: 2rem;
+    }
+
+    .album-artwork {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .album-artwork img {
+        width: 100%;
+        height: auto;
+    }
+
+    .album-artwork-placeholder {
+        width: 100%;
+        max-width: 300px;
+        aspect-ratio: 1;
+        background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+    }
+
+    .album-info {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .tracks-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .track-row {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .track-row:hover {
+        background-color: #f8f9fa;
+    }
+
+    .track-title {
+        font-weight: 500;
+    }
+
+    .btn-outline-light:hover {
+        color: #1e3c72;
+    }
+
+    a.text-light:hover {
+        opacity: 0.8;
+    }
+    
+    .track-number-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+    }
+    
+    .track-number {
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .play-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: transparent;
+        border: none;
+        color: #007bff;
+        font-size: 14px;
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.2s ease;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        z-index: 2;
+    }
+    
+    .play-icon i {
+        font-size: 14px;
+        line-height: 1;
+    }
+    
+    .track-row:hover .play-icon {
+        opacity: 1;
+        background: rgba(0, 123, 255, 0.1);
+        color: #007bff;
+    }
+    
+    .track-row:hover .track-number {
+        opacity: 0;
+    }
+    
+    .play-icon:hover {
+        background: rgba(0, 123, 255, 0.2) !important;
+        color: #0056b3 !important;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+</style>
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    [CascadingParameter] public MiniPlayer? MiniPlayer { get; set; }
+
+    private Album? album;
+    private List<TrackViewModel> tracks = new();
+    private int totalDuration = 0;
+    private string? firstTrackGenre;
+    private bool isLoading = true;
+
+    public class TrackViewModel
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public int? TrackNumber { get; set; }
+        public int? DiscNumber { get; set; }
+        public int DurationMs { get; set; }
+        public string? AlbumArtist { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAlbum();
+    }
+
+    private async Task LoadAlbum()
+    {
+        isLoading = true;
+        try
+        {
+            album = await DbContext.Albums
+                .Include(a => a.Artist)
+                .Include(a => a.Tracks)
+                .FirstOrDefaultAsync(a => a.Id == Id);
+
+            if (album != null)
+            {
+                tracks = album.Tracks
+                    .OrderBy(t => t.DiscNumber ?? 1)
+                    .ThenBy(t => t.TrackNumber ?? 0)
+                    .Select(t => new TrackViewModel
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        TrackNumber = t.TrackNumber,
+                        DiscNumber = t.DiscNumber,
+                        DurationMs = t.DurationMs,
+                        AlbumArtist = t.Artist?.Name
+                    })
+                    .ToList();
+
+                totalDuration = tracks.Sum(t => t.DurationMs);
+                firstTrackGenre = album.Tracks.FirstOrDefault()?.Genre;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading album: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task PlayAlbum()
+    {
+        if (MiniPlayer != null)
+        {
+            await MiniPlayer.PlayAlbum(Id);
+        }
+    }
+
+    private async Task PlayTrack(string trackId)
+    {
+        if (MiniPlayer != null)
+        {
+            await MiniPlayer.PlayTrack(trackId);
+        }
+    }
+
+    private async Task ShufflePlay()
+    {
+        if (MiniPlayer != null && tracks.Any())
+        {
+            var random = new Random();
+            var shuffledTracks = tracks.OrderBy(x => random.Next()).ToList();
+            await MiniPlayer.PlayTrack(shuffledTracks.First().Id);
+        }
+    }
+
+    private string FormatDuration(int milliseconds)
+    {
+        var timeSpan = TimeSpan.FromMilliseconds(milliseconds);
+        if (timeSpan.Hours > 0)
+        {
+            return $"{(int)timeSpan.TotalHours}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+        }
+        return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+    }
+
+    private void HandleImageError(Microsoft.AspNetCore.Components.Web.ErrorEventArgs e)
+    {
+        // Image failed to load, placeholder will be shown via CSS
+    }
+}
