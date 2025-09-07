@@ -1,0 +1,82 @@
+@page "/admin/dashboard"
+@page "/admin/"
+@using Microsoft.AspNetCore.Authorization
+@using Audiarr.Data.Context
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize]
+@inject AudiarrContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - Audiarr Admin</PageTitle>
+
+<h1>Dashboard</h1>
+
+<div class="row">
+    <div class="col-md-3">
+        <StatCard Title="Total Tracks" Value="@trackCount.ToString()" Icon="🎵" />
+    </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Albums" Value="@albumCount.ToString()" Icon="💿" />
+    </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Artists" Value="@artistCount.ToString()" Icon="🎤" />
+    </div>
+    <div class="col-md-3">
+        <StatCard Title="Total Users" Value="@userCount.ToString()" Icon="👥" />
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">System Information</h5>
+                <ul class="list-unstyled">
+                    <li>📦 API Version: <strong>2.0.0</strong></li>
+                    <li>🌍 Environment: <strong>@environment</strong></li>
+                    <li>💾 Database: <strong>SQLite</strong></li>
+                    <li>🚀 .NET Version: <strong>9.0</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Actions</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/admin/library"))">
+                        🎵 Manage Library
+                    </button>
+                    <button class="btn btn-secondary" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
+                        👥 Manage Users
+                    </button>
+                    <button class="btn btn-info text-white" @onclick="@(() => Navigation.NavigateTo("/admin/settings"))">
+                        ⚙️ Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int trackCount = 0;
+    private int albumCount = 0;
+    private int artistCount = 0;
+    private int userCount = 0;
+    private string environment = "Development";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch actual counts from database
+        trackCount = await DbContext.Tracks.CountAsync();
+        albumCount = await DbContext.Albums.CountAsync();
+        artistCount = await DbContext.Artists.CountAsync();
+        userCount = await DbContext.Users.CountAsync();
+        
+        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+        
+        await base.OnInitializedAsync();
+    }
+}
