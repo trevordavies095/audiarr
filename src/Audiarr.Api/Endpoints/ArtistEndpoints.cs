@@ -21,7 +21,7 @@ public static class ArtistEndpoints
             if (limit < 1 || limit > 100) limit = 50;
 
             var cacheKey = $"artists:page:{page}:limit:{limit}";
-            
+
             if (!cache.TryGetValue(cacheKey, out var cachedResult))
             {
                 var query = db.Artists
@@ -31,7 +31,7 @@ public static class ArtistEndpoints
                     .AsNoTracking();
 
                 var total = await query.CountAsync();
-                
+
                 var artists = await query
                     .Skip((page - 1) * limit)
                     .Take(limit)
@@ -45,15 +45,15 @@ public static class ArtistEndpoints
                     })
                     .ToListAsync();
 
-                cachedResult = new 
-                { 
-                    data = artists, 
-                    page, 
+                cachedResult = new
+                {
+                    data = artists,
+                    page,
                     limit,
                     total,
                     totalPages = (int)Math.Ceiling((double)total / limit)
                 };
-                
+
                 // Cache for 5 minutes
                 cache.Set(cacheKey, cachedResult, TimeSpan.FromMinutes(5));
             }
@@ -72,7 +72,7 @@ public static class ArtistEndpoints
                 .Include(a => a.Albums)
                 .ThenInclude(al => al.Tracks)
                 .Where(a => a.Id == id)
-                .Select(a => new 
+                .Select(a => new
                 {
                     Id = a.Id,
                     Name = a.Name,
