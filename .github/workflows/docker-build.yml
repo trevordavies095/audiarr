@@ -8,6 +8,7 @@ on:
     tags:
       - 'v*'
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches:
       - main
       - develop
@@ -33,7 +34,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -41,7 +42,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
+        if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)) && secrets.DOCKER_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -56,9 +57,9 @@ jobs:
             ${{ secrets.DOCKER_USERNAME && format('docker.io/{0}/audiarr', secrets.DOCKER_USERNAME) || '' }}
           tags: |
             # Branch-specific tags
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=stable,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') }}
+            type=raw,value=stable,enable=${{ github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') }}
             
             # Version tags (only on version tags)
             type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -66,12 +67,15 @@ jobs:
             type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             
             # SHA-based tags for traceability
-            type=sha,prefix=develop-,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=sha,prefix=main-,enable=${{ github.ref == 'refs/heads/main' }}
-            type=sha,prefix=pr-${{ github.event.pull_request.number }}-,enable=${{ github.event_name == 'pull_request' }}
+            type=sha,prefix=develop-,enable=${{ github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') }}
+            type=sha,prefix=main-,enable=${{ github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') }}
+            type=sha,prefix=pr-${{ github.event.pull_request.number }}-,enable=${{ github.event_name == 'pull_request' && !github.event.pull_request.merged }}
+            
+            # Merged PR tag
+            type=raw,value=pr-${{ github.event.pull_request.number }}-merged,enable=${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true }}
             
             # Date-based tag for edge builds
-            type=raw,value=edge-{{date 'YYYYMMDD'}},enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=edge-{{date 'YYYYMMDD'}},enable=${{ github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') }}
             
             # PR tags (for build verification only, not pushed)
             type=ref,event=pr
@@ -90,7 +94,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -103,7 +107,7 @@ jobs:
             BUILD_ENV=${{ github.ref == 'refs/heads/develop' && 'development' || 'production' }}
 
       - name: Generate SBOM
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
         uses: anchore/sbom-action@v0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref == 'refs/heads/develop' && 'edge' || github.ref == 'refs/heads/main' && 'latest' || steps.meta.outputs.version }}
@@ -111,14 +115,14 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Upload SBOM
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
         uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ github.sha }}
           path: sbom.spdx.json
 
       - name: Comment on PR with build info
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !github.event.pull_request.merged
         uses: actions/github-script@v7
         with:
           script: |
@@ -144,9 +148,50 @@ jobs:
               body: body
             });
 
+      - name: Comment on merged PR with published images
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = '${{ github.base_ref }}';
+            const prNumber = '${{ github.event.pull_request.number }}';
+            const sha = '${{ github.sha }}';
+            const registry = '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}';
+            
+            let mainTag = branch === 'main' ? 'latest' : 'edge';
+            
+            const body = `## 🚀 Docker Images Published!
+            
+            This PR has been merged and Docker images have been published to GitHub Container Registry.
+            
+            **Pull the new images:**
+            \`\`\`bash
+            # Latest ${branch} build
+            docker pull ${registry}:${mainTag}
+            
+            # Specific PR merge
+            docker pull ${registry}:pr-${prNumber}-merged
+            
+            # SHA-based tag
+            docker pull ${registry}:${branch}-${sha.substring(0, 7)}
+            \`\`\`
+            
+            **Image Details:**
+            • Registry: \`${registry}\`
+            • Branch: \`${branch}\`
+            • SHA: \`${sha}\`
+            • Platforms: \`linux/amd64, linux/arm64\``;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
   test-image:
     needs: build-and-push
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: read
