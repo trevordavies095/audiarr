@@ -44,6 +44,9 @@ builder.Services.AddAuthorization();
 
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ILibraryScanner, LibraryScanner>();
+builder.Services.AddSingleton<ScannerBackgroundService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
 // Configure SQLite database
 var dataPath = builder.Environment.IsDevelopment() 
@@ -126,6 +129,7 @@ app.MapGet("/api/info", () => Results.Ok(new
 
 // Map API endpoints
 app.MapAuthEndpoints();
+app.MapScannerEndpoints();
 
 // Map Blazor Server endpoints
 app.MapBlazorHub();
