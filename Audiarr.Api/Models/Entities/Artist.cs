@@ -4,6 +4,7 @@ public class Artist : BaseEntity
 {
     public required string Name { get; set; }
     public string? SortName { get; set; }
+    public string? NameNormalized { get; set; }
     public string? NormalizedName { get; set; }
     public string? ImagePath { get; set; }
     

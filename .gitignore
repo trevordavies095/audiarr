@@ -54,3 +54,15 @@ TestResults/
 *.vssscc
 
 CLAUDE_REQUIREMENTS/
+
+## Ignore test music directory
+test-music/
+*/test-music/
+
+## Ignore local data directory
+Data/
+*/Data/
+
+## Ignore artwork directory
+artwork/
+*/artwork/

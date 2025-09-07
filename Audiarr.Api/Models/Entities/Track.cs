@@ -15,6 +15,7 @@ public class Track : BaseEntity
     public int? BitRate { get; set; }
     public int? SampleRate { get; set; }
     public string? CodecName { get; set; }
+    public string? FileHash { get; set; }
     
     // Navigation properties
     public virtual Album Album { get; set; } = null!;
