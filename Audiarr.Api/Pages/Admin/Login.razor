@@ -1,10 +1,15 @@
 @page "/admin/login"
+@layout MainLayout
 @using Audiarr.Api.Models.DTOs
 @using Audiarr.Api.Services.Interfaces
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject ProtectedLocalStorage LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Login - Audiarr Admin</PageTitle>
 
@@ -71,6 +76,16 @@
     private string errorMessage = string.Empty;
     private bool isLoading = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already authenticated and redirect
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/admin");
+        }
+    }
+
     private async Task HandleLogin()
     {
         isLoading = true;
@@ -88,8 +103,14 @@
                 await LocalStorage.SetAsync("username", result.User.Username);
                 await LocalStorage.SetAsync("userRole", result.User.Role);
                 
-                // Redirect to dashboard
-                Navigation.NavigateTo("/admin/dashboard", true);
+                // Notify authentication state provider
+                if (AuthStateProvider is Audiarr.Api.Services.BlazorAuthStateProvider blazorAuthProvider)
+                {
+                    blazorAuthProvider.MarkUserAsAuthenticated(result.User.Username, result.User.Role);
+                }
+                
+                // Force reload to update authentication state
+                Navigation.NavigateTo("/admin", true);
             }
             else
             {
