@@ -131,6 +131,9 @@ app.MapGet("/api/info", () => Results.Ok(new
 // Map API endpoints
 app.MapAuthEndpoints();
 app.MapScannerEndpoints();
+app.MapArtistEndpoints();
+app.MapAlbumEndpoints();
+app.MapTrackEndpoints();
 
 // Map Blazor Server endpoints
 app.MapBlazorHub();

@@ -10,6 +10,7 @@ public class Album : BaseEntity
     public string? CoverArtPath { get; set; }
     public string? Genre { get; set; }
     public int? Year { get; set; }
+    public DateTime AddedDate => CreatedAt; // Use base entity property
     
     // Navigation properties
     public virtual Artist Artist { get; set; } = null!;
