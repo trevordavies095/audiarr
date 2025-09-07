@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Audiarr.Api.Data;
 using Audiarr.Api.Models.DTOs;
 
@@ -14,39 +15,50 @@ public static class ArtistEndpoints
             .RequireAuthorization();
 
         // Get all artists with pagination
-        group.MapGet("/", async (AudiarrContext db, int page = 1, int limit = 50) =>
+        group.MapGet("/", async (AudiarrContext db, IMemoryCache cache, int page = 1, int limit = 50) =>
         {
             if (page < 1) page = 1;
             if (limit < 1 || limit > 100) limit = 50;
 
-            var query = db.Artists
-                .Include(a => a.Albums)
-                .ThenInclude(al => al.Tracks)
-                .OrderBy(a => a.SortName ?? a.Name);
-
-            var total = await query.CountAsync();
+            var cacheKey = $"artists:page:{page}:limit:{limit}";
             
-            var artists = await query
-                .Skip((page - 1) * limit)
-                .Take(limit)
-                .Select(a => new ArtistDto
-                {
-                    Id = a.Id,
-                    Name = a.Name,
-                    SortName = a.SortName,
-                    AlbumCount = a.Albums.Count(),
-                    TrackCount = a.Albums.SelectMany(al => al.Tracks).Count()
-                })
-                .ToListAsync();
+            if (!cache.TryGetValue(cacheKey, out var cachedResult))
+            {
+                var query = db.Artists
+                    .Include(a => a.Albums)
+                    .ThenInclude(al => al.Tracks)
+                    .OrderBy(a => a.SortName ?? a.Name)
+                    .AsNoTracking();
 
-            return Results.Ok(new 
-            { 
-                data = artists, 
-                page, 
-                limit,
-                total,
-                totalPages = (int)Math.Ceiling((double)total / limit)
-            });
+                var total = await query.CountAsync();
+                
+                var artists = await query
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .Select(a => new ArtistDto
+                    {
+                        Id = a.Id,
+                        Name = a.Name,
+                        SortName = a.SortName,
+                        AlbumCount = a.Albums.Count(),
+                        TrackCount = a.Albums.SelectMany(al => al.Tracks).Count()
+                    })
+                    .ToListAsync();
+
+                cachedResult = new 
+                { 
+                    data = artists, 
+                    page, 
+                    limit,
+                    total,
+                    totalPages = (int)Math.Ceiling((double)total / limit)
+                };
+                
+                // Cache for 5 minutes
+                cache.Set(cacheKey, cachedResult, TimeSpan.FromMinutes(5));
+            }
+
+            return Results.Ok(cachedResult);
         })
         .WithName("GetArtists")
         .WithOpenApi()

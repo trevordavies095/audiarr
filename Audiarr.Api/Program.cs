@@ -47,6 +47,22 @@ try
 // Add services to the container
 builder.Services.AddHealthChecks();
 
+// Add response compression for better performance
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Optimal;
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Optimal;
+});
+
 // Configure JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>() 
@@ -90,7 +106,17 @@ Directory.CreateDirectory(dataPath);
 var connectionString = $"Data Source={Path.Combine(dataPath, "audiarr.db")}";
 
 builder.Services.AddDbContext<AudiarrContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    options.UseSqlite(connectionString, sqliteOptions =>
+    {
+        sqliteOptions.CommandTimeout(30);
+    });
+    
+    // Performance optimizations
+    options.UseQueryTrackingBehavior(Microsoft.EntityFrameworkCore.QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableServiceProviderCaching();
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -131,6 +157,9 @@ builder.Services.AddScoped<HttpClient>(sp =>
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, Audiarr.Api.Services.BlazorAuthStateProvider>();
 builder.Services.AddAuthorizationCore();
 
+// Add memory cache for performance
+builder.Services.AddMemoryCache();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -141,6 +170,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+// Add response compression middleware
+app.UseResponseCompression();
 
 // Add Serilog request logging (moved here for proper ordering)
 app.UseSerilogRequestLogging(options =>
@@ -153,8 +185,17 @@ app.UseSerilogRequestLogging(options =>
             : LogEventLevel.Information;
 });
 
-// Serve static files from wwwroot
-app.UseStaticFiles();
+// Serve static files from wwwroot with caching headers
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Cache static files for 1 year
+        const int durationInSeconds = 60 * 60 * 24 * 365;
+        ctx.Context.Response.Headers.Append(
+            "Cache-Control", $"public, max-age={durationInSeconds}");
+    }
+});
 
 // Add authentication & authorization middleware
 app.UseAuthentication();
