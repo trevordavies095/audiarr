@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Audiarr.Api.Data
 @using Audiarr.Api.Models.Entities
+@using Audiarr.Api.Shared
 @attribute [Authorize]
 @inject AudiarrContext DbContext
 @inject NavigationManager Navigation
@@ -236,6 +237,8 @@ else
 </style>
 
 @code {
+    [CascadingParameter] private MiniPlayer? MiniPlayer { get; set; }
+    
     private List<TrackViewModel> tracks = new();
     private HashSet<string> selectedTracks = new();
     private bool isLoading = true;
@@ -374,8 +377,14 @@ else
 
     private async Task PlayTrack(string trackId)
     {
-        // TODO: Implement play functionality
-        await JSRuntime.InvokeVoidAsync("console.log", $"Play track: {trackId}");
+        if (MiniPlayer != null)
+        {
+            await MiniPlayer.PlayTrack(trackId);
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", $"MiniPlayer not available");
+        }
     }
 
     private void DownloadTrack(string trackId)

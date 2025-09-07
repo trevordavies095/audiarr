@@ -111,43 +111,7 @@ public static class TrackEndpoints
         .WithSummary("Get track by ID")
         .WithDescription("Returns a single track with full metadata");
 
-        // Stream track audio
-        group.MapGet("/{id}/stream", async (string id, AudiarrContext db, HttpContext context) =>
-        {
-            var track = await db.Tracks
-                .Where(t => t.Id == id)
-                .Select(t => new { t.FilePath, t.Title, t.Codec })
-                .FirstOrDefaultAsync();
-
-            if (track == null)
-                return Results.NotFound(new { error = "Track not found" });
-
-            if (!File.Exists(track.FilePath))
-                return Results.NotFound(new { error = "Audio file not found" });
-
-            var fileInfo = new FileInfo(track.FilePath);
-            var contentType = GetAudioContentType(track.FilePath);
-
-            // Support range requests for seeking
-            if (context.Request.Headers.ContainsKey("Range"))
-            {
-                return Results.File(
-                    File.OpenRead(track.FilePath),
-                    contentType: contentType,
-                    fileDownloadName: null,
-                    enableRangeProcessing: true
-                );
-            }
-
-            return Results.File(
-                await File.ReadAllBytesAsync(track.FilePath),
-                contentType: contentType
-            );
-        })
-        .WithName("StreamTrack")
-        .WithOpenApi()
-        .WithSummary("Stream track audio")
-        .WithDescription("Streams the audio file for playback");
+        // Note: Streaming endpoint has been moved to StreamEndpoints.cs with enhanced range request support
 
         // Download track
         group.MapGet("/{id}/download", async (string id, AudiarrContext db) =>

@@ -83,6 +83,16 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSignalR();
 
+// Add HttpClient for Blazor components
+builder.Services.AddScoped<HttpClient>(sp =>
+{
+    var navigationManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    return new HttpClient
+    {
+        BaseAddress = new Uri(navigationManager.BaseUri)
+    };
+});
+
 // Add Blazor authentication
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, Audiarr.Api.Services.BlazorAuthStateProvider>();
 builder.Services.AddAuthorizationCore();
@@ -135,6 +145,7 @@ app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
 app.MapTrackEndpoints();
 app.MapSearchEndpoints();
+app.MapStreamEndpoints();
 app.MapDiagnosticEndpoints();
 app.MapDataCleanupEndpoints();
 
