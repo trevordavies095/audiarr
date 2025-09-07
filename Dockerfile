@@ -4,14 +4,18 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY Audiarr.sln .
-COPY Audiarr.Api/Audiarr.Api.csproj ./Audiarr.Api/
+COPY src/Audiarr.Core/Audiarr.Core.csproj ./src/Audiarr.Core/
+COPY src/Audiarr.Data/Audiarr.Data.csproj ./src/Audiarr.Data/
+COPY src/Audiarr.Services/Audiarr.Services.csproj ./src/Audiarr.Services/
+COPY src/Audiarr.Api/Audiarr.Api.csproj ./src/Audiarr.Api/
+COPY tests/Audiarr.Tests/Audiarr.Tests.csproj ./tests/Audiarr.Tests/
 
 # Restore dependencies
 RUN dotnet restore
 
 # Copy everything else and build
 COPY . .
-RUN dotnet publish Audiarr.Api/Audiarr.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish src/Audiarr.Api/Audiarr.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine

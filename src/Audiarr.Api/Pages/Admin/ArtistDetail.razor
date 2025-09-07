@@ -1,0 +1,272 @@
+@page "/admin/artists/{Id}"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Audiarr.Data.Context
+@using Audiarr.Core.Entities
+@using Audiarr.Api.Shared
+@attribute [Authorize]
+@inject AudiarrContext DbContext
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>@(artist?.Name ?? "Artist") - Audiarr Admin</PageTitle>
+
+@if (isLoading)
+{
+    <div class="text-center mt-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (artist == null)
+{
+    <div class="alert alert-danger mt-5">
+        <h4>Artist Not Found</h4>
+        <p>The artist you're looking for doesn't exist.</p>
+        <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/admin/artists"))">
+            Back to Artists
+        </button>
+    </div>
+}
+else
+{
+    <div class="artist-header mb-4">
+        <button class="btn btn-outline-secondary mb-3" @onclick="@(() => Navigation.NavigateTo("/admin/artists"))">
+            <i class="bi bi-arrow-left"></i> Back to Artists
+        </button>
+        
+        <div class="d-flex align-items-center gap-3">
+            <div class="artist-avatar">
+                <span class="display-1">🎤</span>
+            </div>
+            <div>
+                <h1 class="mb-2">@artist.Name</h1>
+                <div class="text-muted">
+                    <span>@albums.Count album@(albums.Count != 1 ? "s" : "")</span>
+                    <span class="mx-2">•</span>
+                    <span>@totalTracks track@(totalTracks != 1 ? "s" : "")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="mb-3">Albums</h2>
+    
+    @if (!albums.Any())
+    {
+        <div class="alert alert-info">
+            <p>No albums found for this artist.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4">
+            @foreach (var album in albums)
+            {
+                <div class="col">
+                    <div class="card h-100 album-card">
+                        <div class="album-cover-container position-relative">
+                            @if (!string.IsNullOrEmpty(album.CoverArtPath))
+                            {
+                                <img src="@($"/api/v2/albums/{album.Id}/cover")" 
+                                     class="card-img-top album-cover" 
+                                     alt="@album.Title cover"
+                                     @onerror="@((e) => HandleImageError(e))">
+                            }
+                            else
+                            {
+                                <div class="album-cover-placeholder d-flex align-items-center justify-content-center">
+                                    <span class="display-1 text-muted">💿</span>
+                                </div>
+                            }
+                            <div class="album-overlay">
+                                <button class="btn btn-primary btn-sm play-btn" @onclick="() => PlayAlbum(album.Id)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-play-fill"></i> Play
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body" @onclick="() => ViewAlbum(album.Id)" style="cursor: pointer;">
+                            <h6 class="card-title text-truncate" title="@album.Title">@album.Title</h6>
+                            <p class="card-text small text-muted mb-1">
+                                @if (album.Year.HasValue)
+                                {
+                                    <span>@album.Year</span>
+                                    <span class="mx-1">•</span>
+                                }
+                                <span>@album.TrackCount track@(album.TrackCount != 1 ? "s" : "")</span>
+                            </p>
+                            @if (!string.IsNullOrEmpty(album.Genre))
+                            {
+                                <span class="badge bg-secondary">@album.Genre</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+<style>
+    .artist-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 0.5rem;
+        color: white;
+    }
+
+    .artist-avatar {
+        width: 120px;
+        height: 120px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .album-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+
+    .album-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .album-cover-container {
+        position: relative;
+        padding-bottom: 100%;
+        background: #f0f0f0;
+        overflow: hidden;
+    }
+
+    .album-cover {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .album-cover-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+    }
+
+    .album-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .album-card:hover .album-overlay {
+        opacity: 1;
+    }
+
+    .play-btn {
+        transform: scale(0.9);
+        transition: transform 0.2s;
+    }
+
+    .album-card:hover .play-btn {
+        transform: scale(1);
+    }
+</style>
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    [CascadingParameter] public MiniPlayer? MiniPlayer { get; set; }
+
+    private Artist? artist;
+    private List<AlbumViewModel> albums = new();
+    private int totalTracks = 0;
+    private bool isLoading = true;
+
+    public class AlbumViewModel
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public int? Year { get; set; }
+        public string? Genre { get; set; }
+        public string? CoverArtPath { get; set; }
+        public int TrackCount { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadArtist();
+    }
+
+    private async Task LoadArtist()
+    {
+        isLoading = true;
+        try
+        {
+            artist = await DbContext.Artists
+                .Include(a => a.Albums)
+                .ThenInclude(al => al.Tracks)
+                .FirstOrDefaultAsync(a => a.Id == Id);
+
+            if (artist != null)
+            {
+                albums = artist.Albums
+                    .OrderByDescending(a => a.Year)
+                    .ThenBy(a => a.Title)
+                    .Select(a => new AlbumViewModel
+                    {
+                        Id = a.Id,
+                        Title = a.Title,
+                        Year = a.Year,
+                        Genre = a.Tracks.FirstOrDefault()?.Genre,
+                        CoverArtPath = a.CoverArtPath,
+                        TrackCount = a.Tracks.Count
+                    })
+                    .ToList();
+
+                totalTracks = artist.Albums.Sum(a => a.Tracks.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading artist: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ViewAlbum(string albumId)
+    {
+        Navigation.NavigateTo($"/admin/albums/{albumId}");
+    }
+
+    private async Task PlayAlbum(string albumId)
+    {
+        if (MiniPlayer != null)
+        {
+            await MiniPlayer.PlayAlbum(albumId);
+        }
+    }
+
+    private void HandleImageError(Microsoft.AspNetCore.Components.Web.ErrorEventArgs e)
+    {
+        // Image failed to load, placeholder will be shown via CSS
+    }
+}
