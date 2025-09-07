@@ -12,10 +12,18 @@ public class Track : BaseEntity
     public string? Genre { get; set; }
     public int? Year { get; set; }
     public long FileSizeBytes { get; set; }
+    public long? FileSize => FileSizeBytes; // Alias for compatibility
     public int? BitRate { get; set; }
+    public int? Bitrate => BitRate; // Alias for compatibility
     public int? SampleRate { get; set; }
     public string? CodecName { get; set; }
+    public string? Codec => CodecName; // Alias for compatibility
+    public int? Channels { get; set; }
     public string? FileHash { get; set; }
+    public DateTime AddedDate => CreatedAt; // Use base entity property
+    public DateTime ModifiedDate => UpdatedAt; // Use base entity property
+    public int PlayCount { get; set; }
+    public DateTime? LastPlayedDate { get; set; }
     
     // Navigation properties
     public virtual Album Album { get; set; } = null!;
