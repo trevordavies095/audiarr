@@ -1,4 +1,8 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
 <div class="page">
     <div class="sidebar">
@@ -7,7 +11,15 @@
 
     <main>
         <div class="top-row px-4">
-            <span>Audiarr Admin Panel</span>
+            <AuthorizeView>
+                <Authorized>
+                    <span class="me-3">Welcome, @context.User.Identity?.Name!</span>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Logout</button>
+                </Authorized>
+                <NotAuthorized>
+                    <span>Audiarr Admin Panel</span>
+                </NotAuthorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">
@@ -15,3 +27,14 @@
         </article>
     </main>
 </div>
+
+@code {
+    private async Task Logout()
+    {
+        if (AuthStateProvider is Audiarr.Api.Services.BlazorAuthStateProvider blazorAuthProvider)
+        {
+            await blazorAuthProvider.MarkUserAsLoggedOut();
+        }
+        Navigation.NavigateTo("/admin/login", true);
+    }
+}

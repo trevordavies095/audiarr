@@ -1,5 +1,10 @@
 @page "/admin/dashboard"
 @page "/admin/"
+@using Microsoft.AspNetCore.Authorization
+@using Audiarr.Api.Data
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize]
+@inject AudiarrContext DbContext
 
 <PageTitle>Dashboard - Audiarr Admin</PageTitle>
 
@@ -51,15 +56,18 @@
     private int trackCount = 0;
     private int albumCount = 0;
     private int artistCount = 0;
+    private int userCount = 0;
     private string environment = "Development";
 
     protected override async Task OnInitializedAsync()
     {
-        // TODO: Fetch actual counts from database
-        // For now, using placeholder values
-        trackCount = 0;
-        albumCount = 0;
-        artistCount = 0;
+        // Fetch actual counts from database
+        trackCount = await DbContext.Tracks.CountAsync();
+        albumCount = await DbContext.Albums.CountAsync();
+        artistCount = await DbContext.Artists.CountAsync();
+        userCount = await DbContext.Users.CountAsync();
+        
+        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
         
         await base.OnInitializedAsync();
     }
