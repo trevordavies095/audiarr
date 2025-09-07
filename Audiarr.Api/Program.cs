@@ -134,6 +134,8 @@ app.MapScannerEndpoints();
 app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
 app.MapTrackEndpoints();
+app.MapDiagnosticEndpoints();
+app.MapDataCleanupEndpoints();
 
 // Map Blazor Server endpoints
 app.MapBlazorHub();
