@@ -134,6 +134,7 @@ app.MapScannerEndpoints();
 app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
 app.MapTrackEndpoints();
+app.MapSearchEndpoints();
 app.MapDiagnosticEndpoints();
 app.MapDataCleanupEndpoints();
 
