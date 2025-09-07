@@ -8,6 +8,17 @@ public class AudiarrContext : DbContext
     public AudiarrContext(DbContextOptions<AudiarrContext> options) : base(options)
     {
     }
+    
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            return;
+        }
+        
+        // Enable WAL mode for better concurrent access
+        optionsBuilder.UseSqlite(b => b.CommandTimeout(30));
+    }
 
 
     public DbSet<User> Users { get; set; } = null!;
