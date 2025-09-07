@@ -1,9 +1,16 @@
 services:
-    audiarr-server:
-        ports:
-            - 5279:5279
-        volumes:
-            - /mnt/Media/Music:/music
-            - /home/docker/audiarr/config:/config
-        container_name: audiarr-server
-        image: audiarr-server
+  audiarr:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./test-music:/music:ro
+      - audiarr_data:/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MUSIC_LIBRARY_PATH=/music
+    container_name: audiarr-server
+    restart: unless-stopped
+
+volumes:
+  audiarr_data:
