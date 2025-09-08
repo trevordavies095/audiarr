@@ -30,7 +30,7 @@ A self-hosted music streaming server built with .NET 9 that provides a comprehen
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/audiarr.git
+git clone https://github.com/trevordavies095/audiarr.git
 cd audiarr
 ```
 
@@ -70,7 +70,7 @@ docker run -d \
   -p 8080:8080 \
   -v /path/to/your/music:/music:ro \
   -v audiarr_data:/data \
-  ghcr.io/yourusername/audiarr:latest
+  ghcr.io/trevordavies095/audiarr:latest
 ```
 
 ## API Usage
@@ -122,7 +122,7 @@ Comprehensive documentation is available in the `/docs` directory:
 ### Local Development
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/audiarr.git
+git clone https://github.com/trevordavies095/audiarr.git
 cd audiarr
 
 # Restore dependencies
