@@ -12,6 +12,9 @@ public interface IUserManagementService
 {
     Task<PaginatedResponse<UserListDto>> GetUsersAsync(UserListRequest request);
     Task<UserListDto?> GetUserByIdAsync(string userId);
+    Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request);
+    Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null);
+    Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null);
 }
 
 public class UserManagementService : IUserManagementService
@@ -123,5 +126,73 @@ public class UserManagementService : IUserManagementService
     public void InvalidateCache()
     {
         _logger.LogDebug("Invalidating user list cache");
+    }
+
+    public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request)
+    {
+        _logger.LogInformation("Creating new user: {Username}", request.Username);
+
+        // Check for duplicate username
+        if (await _context.Users.AnyAsync(u => u.Username.ToLower() == request.Username.ToLower()))
+        {
+            throw new InvalidOperationException($"Username '{request.Username}' already exists");
+        }
+
+        // Check for duplicate email
+        if (await _context.Users.AnyAsync(u => u.Email.ToLower() == request.Email.ToLower()))
+        {
+            throw new InvalidOperationException($"Email '{request.Email}' is already registered");
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid().ToString(),
+            Username = request.Username,
+            Email = request.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Role = request.Role.ToLower(),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Invalidate cache since we added a new user
+        InvalidateCache();
+
+        _logger.LogInformation("Successfully created user: {Username} with ID: {UserId}", user.Username, user.Id);
+
+        return new CreateUserResponse(
+            user.Id,
+            user.Username,
+            user.Email,
+            user.Role,
+            user.CreatedAt
+        );
+    }
+
+    public async Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null)
+    {
+        var query = _context.Users.Where(u => u.Username.ToLower() == username.ToLower());
+        
+        if (!string.IsNullOrEmpty(excludeUserId))
+        {
+            query = query.Where(u => u.Id != excludeUserId);
+        }
+
+        return !await query.AnyAsync();
+    }
+
+    public async Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null)
+    {
+        var query = _context.Users.Where(u => u.Email.ToLower() == email.ToLower());
+        
+        if (!string.IsNullOrEmpty(excludeUserId))
+        {
+            query = query.Where(u => u.Id != excludeUserId);
+        }
+
+        return !await query.AnyAsync();
     }
 }

@@ -1,6 +1,7 @@
 using Audiarr.Core.DTOs;
 using Audiarr.Services.Users;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Audiarr.Api.Endpoints;
 
@@ -28,6 +29,27 @@ public static class UserEndpoints
             .Produces(404)
             .Produces(401)
             .Produces(403);
+
+        group.MapPost("/", CreateUser)
+            .WithName("CreateUser")
+            .WithSummary("Create a new user")
+            .WithDescription("Creates a new user account. Requires admin role.")
+            .Produces<CreateUserResponse>(201)
+            .Produces<ProblemDetails>(400)
+            .Produces(401)
+            .Produces(403);
+
+        group.MapGet("/check-username/{username}", CheckUsernameAvailability)
+            .WithName("CheckUsernameAvailability")
+            .WithSummary("Check if username is available")
+            .WithDescription("Checks if a username is unique and available for use.")
+            .Produces<bool>(200);
+
+        group.MapGet("/check-email/{email}", CheckEmailAvailability)
+            .WithName("CheckEmailAvailability")
+            .WithSummary("Check if email is available")
+            .WithDescription("Checks if an email address is unique and available for use.")
+            .Produces<bool>(200);
 
         return app;
     }
@@ -69,5 +91,101 @@ public static class UserEndpoints
         return user != null 
             ? TypedResults.Ok(user) 
             : TypedResults.NotFound();
+    }
+
+    private static async Task<Results<Created<CreateUserResponse>, BadRequest<ProblemDetails>, Conflict<ProblemDetails>>> CreateUser(
+        IUserManagementService userService,
+        CreateUserRequest request,
+        ILogger<CreateUserRequest> logger)
+    {
+        // Validate username format (3-20 characters, alphanumeric + underscore)
+        if (string.IsNullOrWhiteSpace(request.Username) || 
+            request.Username.Length < 3 || 
+            request.Username.Length > 20 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Username, @"^[a-zA-Z0-9_]+$"))
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Username",
+                Detail = "Username must be 3-20 characters and contain only letters, numbers, and underscores"
+            });
+        }
+
+        // Validate email format
+        if (string.IsNullOrWhiteSpace(request.Email) || 
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Email",
+                Detail = "Please provide a valid email address"
+            });
+        }
+
+        // Validate password complexity
+        if (string.IsNullOrWhiteSpace(request.Password) ||
+            request.Password.Length < 8 ||
+            !request.Password.Any(char.IsUpper) ||
+            !request.Password.Any(char.IsLower) ||
+            !request.Password.Any(char.IsDigit) ||
+            !request.Password.Any(c => !char.IsLetterOrDigit(c)))
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Password",
+                Detail = "Password must be at least 8 characters with uppercase, lowercase, number, and special character"
+            });
+        }
+
+        // Validate role
+        var validRoles = new[] { "user", "admin" };
+        if (!validRoles.Contains(request.Role.ToLower()))
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Role",
+                Detail = "Role must be either 'user' or 'admin'"
+            });
+        }
+
+        try
+        {
+            var result = await userService.CreateUserAsync(request);
+            return TypedResults.Created($"/api/v2/users/{result.Id}", result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning("Failed to create user: {Message}", ex.Message);
+            return TypedResults.Conflict(new ProblemDetails
+            {
+                Title = "User Creation Failed",
+                Detail = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error creating user");
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "User Creation Failed",
+                Detail = "An unexpected error occurred while creating the user"
+            });
+        }
+    }
+
+    private static async Task<Ok<bool>> CheckUsernameAvailability(
+        IUserManagementService userService,
+        string username)
+    {
+        var isAvailable = await userService.IsUsernameUniqueAsync(username);
+        return TypedResults.Ok(isAvailable);
+    }
+
+    private static async Task<Ok<bool>> CheckEmailAvailability(
+        IUserManagementService userService,
+        string email)
+    {
+        var isAvailable = await userService.IsEmailUniqueAsync(email);
+        return TypedResults.Ok(isAvailable);
     }
 }
