@@ -90,7 +90,7 @@ public static class ArtistEndpoints
                         Genre = al.Tracks.FirstOrDefault() != null ? al.Tracks.First().Genre : null,
                         CoverArtPath = al.CoverArtPath,
                         ReleaseDate = al.ReleaseDate
-                    }).OrderBy(al => al.Year).ThenBy(al => al.Title)
+                    }).OrderBy(al => al.Year).ThenBy(al => al.Title).ToList()
                 })
                 .FirstOrDefaultAsync();
 

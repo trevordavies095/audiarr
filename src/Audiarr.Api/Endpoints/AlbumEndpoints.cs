@@ -95,7 +95,7 @@ public static class AlbumEndpoints
                         Bitrate = t.Bitrate,
                         Codec = t.Codec,
                         FilePath = t.FilePath
-                    }).OrderBy(t => t.DiscNumber).ThenBy(t => t.TrackNumber)
+                    }).OrderBy(t => t.DiscNumber).ThenBy(t => t.TrackNumber).ToList()
                 })
                 .FirstOrDefaultAsync();
 
@@ -177,9 +177,10 @@ public static class AlbumEndpoints
             if (album.CoverArtPath.StartsWith("/artwork/"))
             {
                 var filename = album.CoverArtPath.Substring("/artwork/".Length);
-                var baseDir = env.IsDevelopment()
-                    ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
-                    : "/data";
+                // Use same logic as LibraryScanner for consistency
+                var baseDir = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+                    ? "/data"
+                    : Path.Combine(Directory.GetCurrentDirectory(), "Data");
                 actualFilePath = Path.Combine(baseDir, "artwork", filename);
             }
             else
