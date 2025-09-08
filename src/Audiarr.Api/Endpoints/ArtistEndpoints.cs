@@ -87,7 +87,7 @@ public static class ArtistEndpoints
                         ArtistName = a.Name,
                         Year = al.Year,
                         TrackCount = al.Tracks.Count(),
-                        Genre = al.Tracks.FirstOrDefault() != null ? al.Tracks.First().Genre : null,
+                        Genre = al.Tracks.Select(t => t.Genre).FirstOrDefault(),
                         CoverArtPath = al.CoverArtPath,
                         ReleaseDate = al.ReleaseDate
                     }).OrderBy(al => al.Year).ThenBy(al => al.Title).ToList()
@@ -123,7 +123,7 @@ public static class ArtistEndpoints
                     ArtistName = a.Artist.Name,
                     Year = a.Year,
                     TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.FirstOrDefault() != null ? a.Tracks.First().Genre : null,
+                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
                     CoverArtPath = a.CoverArtPath,
                     ReleaseDate = a.ReleaseDate
                 })
