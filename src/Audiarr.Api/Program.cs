@@ -9,6 +9,7 @@ using Audiarr.Services.Auth;
 using Audiarr.Services.Library;
 using Audiarr.Services.Background;
 using Audiarr.Core.Interfaces;
+using Audiarr.Services.Users;
 using Serilog;
 using Serilog.Events;
 
@@ -92,11 +93,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => 
+        policy.RequireRole("admin"));
+});
 
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILibraryScanner, LibraryScanner>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddSingleton<ScannerBackgroundService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
@@ -228,6 +234,7 @@ app.MapGet("/api/info", () => Results.Ok(new
 
 // Map API endpoints
 app.MapAuthEndpoints();
+app.MapUserEndpoints();
 app.MapScannerEndpoints();
 app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
