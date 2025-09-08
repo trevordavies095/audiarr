@@ -35,6 +35,8 @@ RUN apk add --no-cache \
     ffmpeg \
     ca-certificates \
     tzdata \
+    icu-libs \
+    icu-data-full \
     && rm -rf /var/cache/apk/*
 
 # Create non-root user and group
