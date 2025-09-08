@@ -24,6 +24,9 @@
         </div>
     </div>
     <div class="col-md-6 text-end">
+        <button class="btn btn-success me-2" @onclick="ShowCreateUserModal">
+            ➕ Create User
+        </button>
         <span class="text-muted">Total Users: @totalCount</span>
     </div>
 </div>
@@ -168,6 +171,122 @@ else
     </nav>
 }
 
+@if (showCreateUserModal)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New User</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCreateUserModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(createUserError))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @createUserError
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(createUserSuccess))
+                    {
+                        <div class="alert alert-success" role="alert">
+                            @createUserSuccess
+                        </div>
+                    }
+                    
+                    <form @onsubmit="CreateUser" @onsubmit:preventDefault="true">
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label">Username *</label>
+                            <input type="text" class="form-control @(GetUsernameFieldClass())" id="newUsername" 
+                                   @bind="newUser.Username" @bind:event="oninput" @onblur="ValidateUsername" 
+                                   placeholder="john_doe" required />
+                            @if (!string.IsNullOrEmpty(usernameError))
+                            {
+                                <small class="text-danger">@usernameError</small>
+                            }
+                            <small class="form-text text-muted">3-20 characters, letters, numbers, and underscore only</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newEmail" class="form-label">Email *</label>
+                            <input type="email" class="form-control @(GetEmailFieldClass())" id="newEmail" 
+                                   @bind="newUser.Email" @bind:event="oninput" @onblur="ValidateEmail" 
+                                   placeholder="john@example.com" required />
+                            @if (!string.IsNullOrEmpty(emailError))
+                            {
+                                <small class="text-danger">@emailError</small>
+                            }
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">Password *</label>
+                            <input type="password" class="form-control @(GetPasswordFieldClass())" id="newPassword" 
+                                   @bind="newUser.Password" @bind:event="oninput" @onblur="ValidatePassword" required />
+                            @if (!string.IsNullOrEmpty(newUser.Password))
+                            {
+                                <div class="mt-2">
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar @(GetPasswordStrengthClass())" 
+                                             style="width: @(GetPasswordStrengthPercentage())%"></div>
+                                    </div>
+                                    <small class="text-muted">
+                                        Password Strength: <strong>@passwordStrength</strong>
+                                    </small>
+                                </div>
+                                @if (passwordValidationErrors.Any())
+                                {
+                                    <div class="mt-2">
+                                        @foreach (var error in passwordValidationErrors)
+                                        {
+                                            <small class="text-danger d-block">• @error</small>
+                                        }
+                                    </div>
+                                }
+                            }
+                            <small class="form-text text-muted">
+                                Minimum 8 characters with uppercase, lowercase, number, and special character
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm Password *</label>
+                            <input type="password" class="form-control @(GetConfirmPasswordFieldClass())" 
+                                   id="confirmPassword" @bind="confirmPassword" @bind:event="oninput" required />
+                            @if (!string.IsNullOrEmpty(confirmPassword) && confirmPassword != newUser.Password)
+                            {
+                                <small class="text-danger">Passwords do not match</small>
+                            }
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newRole" class="form-label">Role *</label>
+                            <select class="form-select" id="newRole" @bind="newUser.Role" required>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseCreateUserModal">Cancel</button>
+                    <button type="button" class="btn btn-success" @onclick="CreateUser" 
+                            disabled="@(!IsFormValid() || isCreatingUser)">
+                        @if (isCreatingUser)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Creating...</span>
+                        }
+                        else
+                        {
+                            <span>Create User</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable {
         cursor: pointer;
@@ -199,6 +318,26 @@ else
     private int totalCount = 0;
     private int totalPages = 1;
     private string? currentUsername;
+    
+    // Create User Modal
+    private bool showCreateUserModal = false;
+    private CreateUserModel newUser = new();
+    private string confirmPassword = "";
+    private bool isCreatingUser = false;
+    private string createUserError = "";
+    private string createUserSuccess = "";
+    private string usernameError = "";
+    private string emailError = "";
+    private string passwordStrength = "Weak";
+    private List<string> passwordValidationErrors = new();
+    
+    private class CreateUserModel
+    {
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Role { get; set; } = "user";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -319,5 +458,264 @@ else
             return $"{(int)(timeSpan.TotalDays / 30)} month{((int)(timeSpan.TotalDays / 30) == 1 ? "" : "s")} ago";
         
         return $"{(int)(timeSpan.TotalDays / 365)} year{((int)(timeSpan.TotalDays / 365) == 1 ? "" : "s")} ago";
+    }
+
+    // Create User Modal Methods
+    private void ShowCreateUserModal()
+    {
+        showCreateUserModal = true;
+        ClearCreateUserForm();
+    }
+
+    private void CloseCreateUserModal()
+    {
+        showCreateUserModal = false;
+        ClearCreateUserForm();
+    }
+
+    private void ClearCreateUserForm()
+    {
+        newUser = new CreateUserModel();
+        confirmPassword = "";
+        createUserError = "";
+        createUserSuccess = "";
+        usernameError = "";
+        emailError = "";
+        passwordValidationErrors.Clear();
+        passwordStrength = "Weak";
+    }
+
+    private async Task CreateUser()
+    {
+        if (!IsFormValid() || isCreatingUser)
+            return;
+
+        isCreatingUser = true;
+        createUserError = "";
+        createUserSuccess = "";
+
+        try
+        {
+            var request = new CreateUserRequest(
+                newUser.Username,
+                newUser.Email,
+                newUser.Password,
+                newUser.Role
+            );
+
+            var result = await UserService.CreateUserAsync(request);
+            
+            createUserSuccess = $"User '{result.Username}' created successfully!";
+            StateHasChanged();
+            
+            // Refresh the user list
+            await LoadUsers();
+            
+            // Clear form and close modal after 2 seconds
+            await Task.Delay(2000);
+            CloseCreateUserModal();
+        }
+        catch (InvalidOperationException ex)
+        {
+            createUserError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating user: {ex.Message}");
+            createUserError = "An unexpected error occurred while creating the user.";
+        }
+        finally
+        {
+            isCreatingUser = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ValidateUsername()
+    {
+        usernameError = "";
+        
+        if (string.IsNullOrWhiteSpace(newUser.Username))
+        {
+            usernameError = "Username is required";
+            return;
+        }
+        
+        if (newUser.Username.Length < 3 || newUser.Username.Length > 20)
+        {
+            usernameError = "Username must be 3-20 characters";
+            return;
+        }
+        
+        if (!System.Text.RegularExpressions.Regex.IsMatch(newUser.Username, @"^[a-zA-Z0-9_]+$"))
+        {
+            usernameError = "Username can only contain letters, numbers, and underscores";
+            return;
+        }
+        
+        // Check if username is unique
+        var isAvailable = await UserService.IsUsernameUniqueAsync(newUser.Username);
+        if (!isAvailable)
+        {
+            usernameError = "Username is already taken";
+        }
+    }
+
+    private async Task ValidateEmail()
+    {
+        emailError = "";
+        
+        if (string.IsNullOrWhiteSpace(newUser.Email))
+        {
+            emailError = "Email is required";
+            return;
+        }
+        
+        if (!System.Text.RegularExpressions.Regex.IsMatch(newUser.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+        {
+            emailError = "Please enter a valid email address";
+            return;
+        }
+        
+        // Check if email is unique
+        var isAvailable = await UserService.IsEmailUniqueAsync(newUser.Email);
+        if (!isAvailable)
+        {
+            emailError = "Email is already registered";
+        }
+    }
+
+    private void ValidatePassword()
+    {
+        passwordValidationErrors.Clear();
+        
+        if (string.IsNullOrEmpty(newUser.Password))
+        {
+            passwordStrength = "Weak";
+            return;
+        }
+
+        // Check minimum length
+        if (newUser.Password.Length < 8)
+        {
+            passwordValidationErrors.Add("Must be at least 8 characters");
+        }
+
+        // Check for uppercase
+        if (!newUser.Password.Any(char.IsUpper))
+        {
+            passwordValidationErrors.Add("Must contain at least one uppercase letter");
+        }
+
+        // Check for lowercase
+        if (!newUser.Password.Any(char.IsLower))
+        {
+            passwordValidationErrors.Add("Must contain at least one lowercase letter");
+        }
+
+        // Check for number
+        if (!newUser.Password.Any(char.IsDigit))
+        {
+            passwordValidationErrors.Add("Must contain at least one number");
+        }
+
+        // Check for special character
+        if (!newUser.Password.Any(c => !char.IsLetterOrDigit(c)))
+        {
+            passwordValidationErrors.Add("Must contain at least one special character");
+        }
+
+        // Calculate strength
+        CalculatePasswordStrength();
+    }
+
+    private void CalculatePasswordStrength()
+    {
+        int score = 0;
+
+        if (newUser.Password.Length >= 8) score++;
+        if (newUser.Password.Length >= 12) score++;
+        if (newUser.Password.Any(char.IsUpper)) score++;
+        if (newUser.Password.Any(char.IsLower)) score++;
+        if (newUser.Password.Any(char.IsDigit)) score++;
+        if (newUser.Password.Any(c => !char.IsLetterOrDigit(c))) score++;
+
+        if (score <= 2)
+            passwordStrength = "Weak";
+        else if (score <= 4)
+            passwordStrength = "Medium";
+        else
+            passwordStrength = "Strong";
+    }
+
+    private string GetUsernameFieldClass()
+    {
+        if (string.IsNullOrEmpty(newUser.Username))
+            return "";
+        
+        return string.IsNullOrEmpty(usernameError) ? "is-valid" : "is-invalid";
+    }
+
+    private string GetEmailFieldClass()
+    {
+        if (string.IsNullOrEmpty(newUser.Email))
+            return "";
+        
+        return string.IsNullOrEmpty(emailError) ? "is-valid" : "is-invalid";
+    }
+
+    private string GetPasswordFieldClass()
+    {
+        if (string.IsNullOrEmpty(newUser.Password))
+            return "";
+        
+        ValidatePassword();
+        return passwordValidationErrors.Any() ? "is-invalid" : "is-valid";
+    }
+
+    private string GetConfirmPasswordFieldClass()
+    {
+        if (string.IsNullOrEmpty(confirmPassword))
+            return "";
+        
+        return confirmPassword == newUser.Password ? "is-valid" : "is-invalid";
+    }
+
+    private string GetPasswordStrengthClass()
+    {
+        return passwordStrength switch
+        {
+            "Strong" => "bg-success",
+            "Medium" => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+
+    private int GetPasswordStrengthPercentage()
+    {
+        return passwordStrength switch
+        {
+            "Strong" => 100,
+            "Medium" => 66,
+            _ => 33
+        };
+    }
+
+    private bool IsFormValid()
+    {
+        if (string.IsNullOrWhiteSpace(newUser.Username) || 
+            string.IsNullOrWhiteSpace(newUser.Email) || 
+            string.IsNullOrWhiteSpace(newUser.Password) || 
+            string.IsNullOrWhiteSpace(confirmPassword))
+            return false;
+
+        if (newUser.Password != confirmPassword)
+            return false;
+
+        if (!string.IsNullOrEmpty(usernameError) || !string.IsNullOrEmpty(emailError))
+            return false;
+
+        ValidatePassword();
+        return !passwordValidationErrors.Any();
     }
 }
