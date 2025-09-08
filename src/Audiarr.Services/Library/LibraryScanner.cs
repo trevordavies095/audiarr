@@ -276,9 +276,9 @@ public class LibraryScanner : ILibraryScanner
     private string GetArtworkDirectory()
     {
         // Use Data/artwork for development, /data/artwork for Docker
-        var baseDir = _environment.IsDevelopment()
-            ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
-            : "/data";
+        var baseDir = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+            ? "/data"
+            : Path.Combine(Directory.GetCurrentDirectory(), "Data");
         return Path.Combine(baseDir, "artwork");
     }
 
