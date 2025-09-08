@@ -32,18 +32,23 @@ public static class ArtistEndpoints
 
                 var total = await query.CountAsync();
 
-                var artists = await query
+                // Fetch artists with their albums and tracks
+                var artistsData = await query
                     .Skip((page - 1) * limit)
                     .Take(limit)
-                    .Select(a => new ArtistDto
-                    {
-                        Id = a.Id,
-                        Name = a.Name,
-                        SortName = a.SortName,
-                        AlbumCount = a.Albums.Count(),
-                        TrackCount = a.Albums.SelectMany(al => al.Tracks).Count()
-                    })
+                    .Include(a => a.Albums)
+                    .ThenInclude(al => al.Tracks)
                     .ToListAsync();
+
+                // Process in memory to avoid SQLite APPLY issues
+                var artists = artistsData.Select(a => new ArtistDto
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    SortName = a.SortName,
+                    AlbumCount = a.Albums.Count,
+                    TrackCount = a.Albums.Sum(al => al.Tracks.Count)
+                }).ToList();
 
                 cachedResult = new
                 {
@@ -68,36 +73,45 @@ public static class ArtistEndpoints
         // Get artist by ID
         group.MapGet("/{id}", async (string id, AudiarrContext db) =>
         {
-            var artist = await db.Artists
+            // First, fetch the artist with albums and tracks
+            var artistData = await db.Artists
                 .Include(a => a.Albums)
                 .ThenInclude(al => al.Tracks)
                 .Where(a => a.Id == id)
-                .Select(a => new
-                {
-                    Id = a.Id,
-                    Name = a.Name,
-                    SortName = a.SortName,
-                    AlbumCount = a.Albums.Count(),
-                    TrackCount = a.Albums.SelectMany(al => al.Tracks).Count(),
-                    Albums = a.Albums.Select(al => new AlbumDto
-                    {
-                        Id = al.Id,
-                        Title = al.Title,
-                        ArtistId = a.Id,
-                        ArtistName = a.Name,
-                        Year = al.Year,
-                        TrackCount = al.Tracks.Count(),
-                        Genre = al.Tracks.Select(t => t.Genre).FirstOrDefault(),
-                        CoverArtPath = al.CoverArtPath,
-                        ReleaseDate = al.ReleaseDate
-                    }).OrderBy(al => al.Year).ThenBy(al => al.Title).ToList()
-                })
                 .FirstOrDefaultAsync();
 
-            if (artist == null)
+            if (artistData == null)
                 return Results.NotFound(new { error = "Artist not found" });
 
-            return Results.Ok(artist);
+            // Process the data in memory to avoid SQLite APPLY operation issues
+            var albums = artistData.Albums
+                .Select(al => new AlbumDto
+                {
+                    Id = al.Id,
+                    Title = al.Title,
+                    ArtistId = artistData.Id,
+                    ArtistName = artistData.Name,
+                    Year = al.Year,
+                    TrackCount = al.Tracks.Count,
+                    Genre = al.Tracks.Select(t => t.Genre).FirstOrDefault(),
+                    CoverArtPath = al.CoverArtPath,
+                    ReleaseDate = al.ReleaseDate
+                })
+                .OrderBy(al => al.Year)
+                .ThenBy(al => al.Title)
+                .ToList();
+
+            var result = new
+            {
+                Id = artistData.Id,
+                Name = artistData.Name,
+                SortName = artistData.SortName,
+                AlbumCount = artistData.Albums.Count,
+                TrackCount = artistData.Albums.Sum(al => al.Tracks.Count),
+                Albums = albums
+            };
+
+            return Results.Ok(result);
         })
         .WithName("GetArtistById")
         .WithOpenApi()
