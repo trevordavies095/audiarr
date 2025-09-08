@@ -1,0 +1,414 @@
+@page "/admin/settings"
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Audiarr.Core.DTOs
+@using System.Net.Http.Headers
+@using System.Text.Json
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ILogger<Settings> Logger
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
+
+<h3>⚙️ Settings</h3>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Account Information</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (currentUser != null)
+                        {
+                            <dl class="row">
+                                <dt class="col-sm-4">Username:</dt>
+                                <dd class="col-sm-8">@currentUser.Username</dd>
+                                
+                                <dt class="col-sm-4">Email:</dt>
+                                <dd class="col-sm-8">@currentUser.Email</dd>
+                                
+                                <dt class="col-sm-4">Role:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-info">@currentUser.Role</span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Last Login:</dt>
+                                <dd class="col-sm-8">@(currentUser.LastLogin?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")</dd>
+                            </dl>
+                        }
+                        else
+                        {
+                            <div class="text-muted">Loading user information...</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Security</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary" @onclick="ShowPasswordModal">
+                            🔒 Change Password
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (showPasswordModal)
+        {
+            <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Change Password</h5>
+                            <button type="button" class="btn-close" @onclick="ClosePasswordModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger" role="alert">
+                                    @errorMessage
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(successMessage))
+                            {
+                                <div class="alert alert-success" role="alert">
+                                    @successMessage
+                                </div>
+                            }
+                            
+                            <form @onsubmit="ChangePassword" @onsubmit:preventDefault="true">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="currentPassword" 
+                                           @bind="currentPassword" required />
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">New Password</label>
+                                    <input type="password" class="form-control @(GetPasswordFieldClass())" 
+                                           id="newPassword" @bind="newPassword" @bind:event="oninput" 
+                                           @onblur="ValidatePassword" required />
+                                    @if (!string.IsNullOrEmpty(newPassword))
+                                    {
+                                        <div class="mt-2">
+                                            <div class="progress" style="height: 5px;">
+                                                <div class="progress-bar @(GetPasswordStrengthClass())" 
+                                                     style="width: @(GetPasswordStrengthPercentage())%"></div>
+                                            </div>
+                                            <small class="text-muted">
+                                                Password Strength: <strong>@passwordStrength</strong>
+                                            </small>
+                                        </div>
+                                        @if (passwordValidationErrors.Any())
+                                        {
+                                            <div class="mt-2">
+                                                @foreach (var error in passwordValidationErrors)
+                                                {
+                                                    <small class="text-danger d-block">• @error</small>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                    <small class="form-text text-muted">
+                                        Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control @(GetConfirmPasswordFieldClass())" 
+                                           id="confirmPassword" @bind="confirmPassword" @bind:event="oninput" required />
+                                    @if (!string.IsNullOrEmpty(confirmPassword) && confirmPassword != newPassword)
+                                    {
+                                        <small class="text-danger">Passwords do not match</small>
+                                    }
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePasswordModal">Cancel</button>
+                            <button type="button" class="btn btn-primary" @onclick="ChangePassword" 
+                                    disabled="@(!IsPasswordValid() || isChangingPassword)">
+                                @if (isChangingPassword)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <span>Changing...</span>
+                                }
+                                else
+                                {
+                                    <span>Change Password</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning">
+            You must be logged in to access settings.
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private UserDto? currentUser;
+    private bool showPasswordModal = false;
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private string successMessage = "";
+    private bool isChangingPassword = false;
+    private string passwordStrength = "Weak";
+    private List<string> passwordValidationErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+    }
+
+    private async Task LoadUserInfo()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                var token = await LocalStorage.GetAsync<string>("authToken");
+                if (token.Success && !string.IsNullOrEmpty(token.Value))
+                {
+                    Http.DefaultRequestHeaders.Authorization = 
+                        new AuthenticationHeaderValue("Bearer", token.Value);
+
+                    var response = await Http.GetAsync("/api/v2/auth/me");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        currentUser = JsonSerializer.Deserialize<UserDto>(json, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load user info");
+        }
+    }
+
+    private void ShowPasswordModal()
+    {
+        showPasswordModal = true;
+        ClearPasswordForm();
+    }
+
+    private void ClosePasswordModal()
+    {
+        showPasswordModal = false;
+        ClearPasswordForm();
+    }
+
+    private void ClearPasswordForm()
+    {
+        currentPassword = "";
+        newPassword = "";
+        confirmPassword = "";
+        errorMessage = "";
+        successMessage = "";
+        passwordValidationErrors.Clear();
+        passwordStrength = "Weak";
+    }
+
+    private void ValidatePassword()
+    {
+        passwordValidationErrors.Clear();
+        
+        if (string.IsNullOrEmpty(newPassword))
+        {
+            passwordStrength = "Weak";
+            return;
+        }
+
+        // Check minimum length
+        if (newPassword.Length < 8)
+        {
+            passwordValidationErrors.Add("Must be at least 8 characters");
+        }
+
+        // Check for uppercase
+        if (!newPassword.Any(char.IsUpper))
+        {
+            passwordValidationErrors.Add("Must contain at least one uppercase letter");
+        }
+
+        // Check for lowercase
+        if (!newPassword.Any(char.IsLower))
+        {
+            passwordValidationErrors.Add("Must contain at least one lowercase letter");
+        }
+
+        // Check for number
+        if (!newPassword.Any(char.IsDigit))
+        {
+            passwordValidationErrors.Add("Must contain at least one number");
+        }
+
+        // Check for special character
+        if (!newPassword.Any(c => !char.IsLetterOrDigit(c)))
+        {
+            passwordValidationErrors.Add("Must contain at least one special character");
+        }
+
+        // Calculate strength
+        CalculatePasswordStrength();
+    }
+
+    private void CalculatePasswordStrength()
+    {
+        int score = 0;
+
+        if (newPassword.Length >= 8) score++;
+        if (newPassword.Length >= 12) score++;
+        if (newPassword.Any(char.IsUpper)) score++;
+        if (newPassword.Any(char.IsLower)) score++;
+        if (newPassword.Any(char.IsDigit)) score++;
+        if (newPassword.Any(c => !char.IsLetterOrDigit(c))) score++;
+
+        if (score <= 2)
+            passwordStrength = "Weak";
+        else if (score <= 4)
+            passwordStrength = "Medium";
+        else
+            passwordStrength = "Strong";
+    }
+
+    private string GetPasswordFieldClass()
+    {
+        if (string.IsNullOrEmpty(newPassword))
+            return "";
+        
+        ValidatePassword();
+        return passwordValidationErrors.Any() ? "is-invalid" : "is-valid";
+    }
+
+    private string GetConfirmPasswordFieldClass()
+    {
+        if (string.IsNullOrEmpty(confirmPassword))
+            return "";
+        
+        return confirmPassword == newPassword ? "is-valid" : "is-invalid";
+    }
+
+    private string GetPasswordStrengthClass()
+    {
+        return passwordStrength switch
+        {
+            "Strong" => "bg-success",
+            "Medium" => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+
+    private int GetPasswordStrengthPercentage()
+    {
+        return passwordStrength switch
+        {
+            "Strong" => 100,
+            "Medium" => 66,
+            _ => 33
+        };
+    }
+
+    private bool IsPasswordValid()
+    {
+        if (string.IsNullOrEmpty(currentPassword) || 
+            string.IsNullOrEmpty(newPassword) || 
+            string.IsNullOrEmpty(confirmPassword))
+            return false;
+
+        if (newPassword != confirmPassword)
+            return false;
+
+        ValidatePassword();
+        return !passwordValidationErrors.Any();
+    }
+
+    private async Task ChangePassword()
+    {
+        if (!IsPasswordValid() || isChangingPassword)
+            return;
+
+        isChangingPassword = true;
+        errorMessage = "";
+        successMessage = "";
+
+        try
+        {
+            var token = await LocalStorage.GetAsync<string>("authToken");
+            if (!token.Success || string.IsNullOrEmpty(token.Value))
+            {
+                errorMessage = "Authentication token not found. Please login again.";
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization = 
+                new AuthenticationHeaderValue("Bearer", token.Value);
+
+            var request = new ChangePasswordRequest(currentPassword, newPassword);
+            var response = await Http.PostAsJsonAsync("/api/v2/auth/change-password", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Password changed successfully! You will be redirected to login...";
+                StateHasChanged();
+                
+                // Clear stored token and redirect to login after 2 seconds
+                await Task.Delay(2000);
+                await LocalStorage.DeleteAsync("authToken");
+                await LocalStorage.DeleteAsync("refreshToken");
+                
+                if (AuthStateProvider is BlazorAuthStateProvider blazorAuthProvider)
+                {
+                    await blazorAuthProvider.MarkUserAsLoggedOut();
+                }
+                
+                Navigation.NavigateTo("/admin/login", true);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                if (error.Contains("Current password is incorrect"))
+                {
+                    errorMessage = "Current password is incorrect";
+                }
+                else
+                {
+                    errorMessage = "Failed to change password. Please check your input.";
+                }
+            }
+            else
+            {
+                errorMessage = "An error occurred while changing password. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to change password");
+            errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isChangingPassword = false;
+        }
+    }
+}
