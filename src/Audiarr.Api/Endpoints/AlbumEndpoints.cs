@@ -39,7 +39,7 @@ public static class AlbumEndpoints
                     ArtistName = a.Artist.Name,
                     Year = a.Year,
                     TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.FirstOrDefault() != null ? a.Tracks.First().Genre : null,
+                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
                     CoverArtPath = a.CoverArtPath,
                     ReleaseDate = a.ReleaseDate
                 })
@@ -74,7 +74,7 @@ public static class AlbumEndpoints
                     ArtistName = a.Artist.Name,
                     Year = a.Year,
                     TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.FirstOrDefault() != null ? a.Tracks.First().Genre : null,
+                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
                     CoverArtPath = a.CoverArtPath,
                     ReleaseDate = a.ReleaseDate,
                     TotalDurationMs = a.Tracks.Sum(t => t.DurationMs),
@@ -223,7 +223,7 @@ public static class AlbumEndpoints
                     ArtistName = a.Artist.Name,
                     Year = a.Year,
                     TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.FirstOrDefault() != null ? a.Tracks.First().Genre : null,
+                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
                     CoverArtPath = a.CoverArtPath,
                     ReleaseDate = a.ReleaseDate
                 })
