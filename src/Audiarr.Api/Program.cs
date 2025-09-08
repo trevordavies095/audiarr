@@ -164,6 +164,23 @@ try
 
     var app = builder.Build();
 
+    // Apply database migrations on startup
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AudiarrContext>();
+        try
+        {
+            Log.Information("Checking database migrations...");
+            dbContext.Database.Migrate();
+            Log.Information("Database migrations applied successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "An error occurred while migrating the database");
+            throw;
+        }
+    }
+
     // Configure the HTTP request pipeline
     if (app.Environment.IsDevelopment())
     {
