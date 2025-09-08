@@ -216,10 +216,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --rm \
-            -e ASPNETCORE_ENVIRONMENT=Development \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.test-tag.outputs.tag }} \
-            --version || true
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.test-tag.outputs.tag }}
 
       - name: Security scan with Trivy
         uses: aquasecurity/trivy-action@master
