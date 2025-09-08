@@ -28,22 +28,25 @@ public static class AlbumEndpoints
 
             var total = await query.CountAsync();
 
-            var albums = await query
+            // Fetch albums with tracks to avoid SQLite APPLY issues
+            var albumsData = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
-                .Select(a => new AlbumDto
-                {
-                    Id = a.Id,
-                    Title = a.Title,
-                    ArtistId = a.ArtistId,
-                    ArtistName = a.Artist.Name,
-                    Year = a.Year,
-                    TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
-                    CoverArtPath = a.CoverArtPath,
-                    ReleaseDate = a.ReleaseDate
-                })
                 .ToListAsync();
+
+            // Process in memory
+            var albums = albumsData.Select(a => new AlbumDto
+            {
+                Id = a.Id,
+                Title = a.Title,
+                ArtistId = a.ArtistId,
+                ArtistName = a.Artist.Name,
+                Year = a.Year,
+                TrackCount = a.Tracks.Count,
+                Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
+                CoverArtPath = a.CoverArtPath,
+                ReleaseDate = a.ReleaseDate
+            }).ToList();
 
             return Results.Ok(new
             {
@@ -62,47 +65,56 @@ public static class AlbumEndpoints
         // Get album by ID
         group.MapGet("/{id}", async (string id, AudiarrContext db) =>
         {
-            var album = await db.Albums
+            // First, fetch the album with artist and tracks
+            var albumData = await db.Albums
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
                 .Where(a => a.Id == id)
-                .Select(a => new
-                {
-                    Id = a.Id,
-                    Title = a.Title,
-                    ArtistId = a.ArtistId,
-                    ArtistName = a.Artist.Name,
-                    Year = a.Year,
-                    TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
-                    CoverArtPath = a.CoverArtPath,
-                    ReleaseDate = a.ReleaseDate,
-                    TotalDurationMs = a.Tracks.Sum(t => t.DurationMs),
-                    Tracks = a.Tracks.Select(t => new TrackDto
-                    {
-                        Id = t.Id,
-                        Title = t.Title,
-                        ArtistId = t.ArtistId,
-                        ArtistName = a.Artist.Name,
-                        AlbumId = t.AlbumId,
-                        AlbumTitle = a.Title,
-                        TrackNumber = t.TrackNumber,
-                        DiscNumber = t.DiscNumber,
-                        DurationMs = t.DurationMs,
-                        Genre = t.Genre,
-                        Year = t.Year,
-                        FileSize = t.FileSize,
-                        Bitrate = t.Bitrate,
-                        Codec = t.Codec,
-                        FilePath = t.FilePath
-                    }).OrderBy(t => t.DiscNumber).ThenBy(t => t.TrackNumber).ToList()
-                })
                 .FirstOrDefaultAsync();
 
-            if (album == null)
+            if (albumData == null)
                 return Results.NotFound(new { error = "Album not found" });
 
-            return Results.Ok(album);
+            // Process the data in memory to avoid SQLite APPLY operation issues
+            var tracks = albumData.Tracks
+                .Select(t => new TrackDto
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    ArtistId = t.ArtistId,
+                    ArtistName = albumData.Artist.Name,
+                    AlbumId = t.AlbumId,
+                    AlbumTitle = albumData.Title,
+                    TrackNumber = t.TrackNumber,
+                    DiscNumber = t.DiscNumber,
+                    DurationMs = t.DurationMs,
+                    Genre = t.Genre,
+                    Year = t.Year,
+                    FileSize = t.FileSize,
+                    Bitrate = t.Bitrate,
+                    Codec = t.Codec,
+                    FilePath = t.FilePath
+                })
+                .OrderBy(t => t.DiscNumber)
+                .ThenBy(t => t.TrackNumber)
+                .ToList();
+
+            var result = new
+            {
+                Id = albumData.Id,
+                Title = albumData.Title,
+                ArtistId = albumData.ArtistId,
+                ArtistName = albumData.Artist.Name,
+                Year = albumData.Year,
+                TrackCount = albumData.Tracks.Count,
+                Genre = albumData.Tracks.Select(t => t.Genre).FirstOrDefault(),
+                CoverArtPath = albumData.CoverArtPath,
+                ReleaseDate = albumData.ReleaseDate,
+                TotalDurationMs = albumData.Tracks.Sum(t => t.DurationMs),
+                Tracks = tracks
+            };
+
+            return Results.Ok(result);
         })
         .WithName("GetAlbumById")
         .WithOpenApi()
@@ -210,24 +222,27 @@ public static class AlbumEndpoints
         {
             if (limit < 1 || limit > 100) limit = 20;
 
-            var albums = await db.Albums
+            // Fetch albums with related data
+            var albumsData = await db.Albums
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
                 .OrderByDescending(a => a.AddedDate)
                 .Take(limit)
-                .Select(a => new AlbumDto
-                {
-                    Id = a.Id,
-                    Title = a.Title,
-                    ArtistId = a.ArtistId,
-                    ArtistName = a.Artist.Name,
-                    Year = a.Year,
-                    TrackCount = a.Tracks.Count(),
-                    Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
-                    CoverArtPath = a.CoverArtPath,
-                    ReleaseDate = a.ReleaseDate
-                })
                 .ToListAsync();
+
+            // Process in memory to avoid SQLite APPLY issues
+            var albums = albumsData.Select(a => new AlbumDto
+            {
+                Id = a.Id,
+                Title = a.Title,
+                ArtistId = a.ArtistId,
+                ArtistName = a.Artist.Name,
+                Year = a.Year,
+                TrackCount = a.Tracks.Count,
+                Genre = a.Tracks.Select(t => t.Genre).FirstOrDefault(),
+                CoverArtPath = a.CoverArtPath,
+                ReleaseDate = a.ReleaseDate
+            }).ToList();
 
             return Results.Ok(new { data = albums });
         })
