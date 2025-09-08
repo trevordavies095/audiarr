@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
 
 # Copy solution and project files first for better caching
-COPY Audiarr.sln .
+COPY audiarr.sln .
 COPY src/Audiarr.Core/Audiarr.Core.csproj ./src/Audiarr.Core/
 COPY src/Audiarr.Data/Audiarr.Data.csproj ./src/Audiarr.Data/
 COPY src/Audiarr.Services/Audiarr.Services.csproj ./src/Audiarr.Services/
