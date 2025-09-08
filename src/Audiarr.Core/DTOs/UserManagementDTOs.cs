@@ -25,3 +25,18 @@ public record UserListRequest(
     string? SortOrder = "asc",
     string? SearchTerm = null
 );
+
+public record CreateUserRequest(
+    string Username,
+    string Email,
+    string Password,
+    string Role = "user"
+);
+
+public record CreateUserResponse(
+    string Id,
+    string Username,
+    string Email,
+    string Role,
+    DateTime CreatedAt
+);
