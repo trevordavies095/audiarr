@@ -76,3 +76,5 @@ artwork/
 Logs/
 */Logs/
 *.log
+
+.claude
