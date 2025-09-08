@@ -14,9 +14,9 @@ using Serilog.Events;
 
 // Configure Serilog
 var logPath = Path.Combine(
-    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development"
-        ? Path.Combine(Directory.GetCurrentDirectory(), "Logs")
-        : "/data/logs",
+    Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+        ? "/data/logs"
+        : Path.Combine(Directory.GetCurrentDirectory(), "Logs"),
     "audiarr-.log");
 
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
@@ -101,9 +101,9 @@ try
     builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
     // Configure SQLite database
-    var dataPath = builder.Environment.IsDevelopment()
-        ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
-        : "/data";
+    var dataPath = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+        ? "/data"
+        : Path.Combine(Directory.GetCurrentDirectory(), "Data");
     Directory.CreateDirectory(dataPath);
     var connectionString = $"Data Source={Path.Combine(dataPath, "audiarr.db")}";
 
