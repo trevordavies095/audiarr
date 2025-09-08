@@ -70,5 +70,9 @@ jobs:
           cache-to: |
             type=gha,mode=max
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-          # For PRs, just build for linux/amd64 to speed up builds
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          # Platform strategy:
+          # - PRs and regular pushes: AMD64 only (fast builds ~2min)
+          # - Version tags (v*): Multi-platform AMD64+ARM64 (slower ~11min due to QEMU emulation)
+          # Note: ARM64 builds using QEMU emulation are 30-40x slower than native builds
+          # Consider using native ARM64 runners or scheduled builds for better ARM64 support
+          platforms: ${{ startsWith(github.ref, 'refs/tags/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
