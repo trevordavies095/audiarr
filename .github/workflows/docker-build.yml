@@ -30,8 +30,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Report build context size
+        run: |
+          echo "## Build Context Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "### Directory Sizes:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          du -sh . 2>/dev/null | head -1 >> $GITHUB_STEP_SUMMARY
+          du -sh src 2>/dev/null | head -1 >> $GITHUB_STEP_SUMMARY
+          du -sh tests 2>/dev/null | head -1 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Files in context (excluding .dockerignore):" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          find . -type f ! -path "./.git/*" ! -path "./test-data/*" ! -path "./Data/*" | wc -l | xargs echo "Total files:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+          driver-opts: |
+            network=host
+            image=moby/buildkit:latest
 
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
@@ -81,7 +100,12 @@ jobs:
             org.opencontainers.image.branch=${{ github.ref_name }}
             org.opencontainers.image.build.environment=${{ github.ref == 'refs/heads/develop' && 'development' || 'production' }}
 
+      - name: Record build start time
+        id: build-start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
+        id: docker-build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -89,14 +113,36 @@ jobs:
           push: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
           build-args: |
+            BUILDKIT_INLINE_CACHE=1
             BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
             REVISION=${{ github.sha }}
             BRANCH=${{ github.ref_name }}
             BUILD_ENV=${{ github.ref == 'refs/heads/develop' && 'development' || 'production' }}
+
+      - name: Report build time
+        if: always()
+        run: |
+          END_TIME=$(date +%s)
+          START_TIME=${{ steps.build-start.outputs.start_time }}
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          echo "## ⏱️ Build Performance" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Duration:** ${MINUTES}m ${SECONDS}s" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ $MINUTES -gt 10 ]; then
+            echo "⚠️ **Warning:** Build took longer than 10 minutes. Consider optimizing the build process." >> $GITHUB_STEP_SUMMARY
+          elif [ $MINUTES -lt 5 ]; then
+            echo "✅ **Great!** Build completed in under 5 minutes." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Generate SBOM
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
