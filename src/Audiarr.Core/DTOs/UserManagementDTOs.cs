@@ -50,3 +50,14 @@ public record ResetPasswordResponse(
     string NewPassword,
     string Method // "generated" or "manual"
 );
+
+public record UserStatusRequest(
+    bool IsActive,
+    string? Reason = null // Optional reason for audit log
+);
+
+public record UserStatusResponse(
+    string UserId,
+    bool IsActive,
+    DateTime UpdatedAt
+);
