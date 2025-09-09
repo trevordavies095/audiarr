@@ -28,6 +28,7 @@ public class AudiarrContext : DbContext
     public DbSet<Playlist> Playlists { get; set; } = null!;
     public DbSet<PlaylistTrack> PlaylistTracks { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -134,6 +135,27 @@ public class AudiarrContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AuditLog entity
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.PerformedByUserId);
+            entity.HasIndex(e => e.TargetUserId);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Details).HasMaxLength(1000);
+            
+            entity.HasOne(e => e.PerformedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.PerformedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasOne(e => e.TargetUser)
+                .WithMany()
+                .HasForeignKey(e => e.TargetUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Seed admin user with fixed values to prevent migration changes
