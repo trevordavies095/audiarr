@@ -18,4 +18,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Audiarr.Core\Audiarr.Core.csproj" />
+  </ItemGroup>
+
 </Project>
