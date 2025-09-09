@@ -12,6 +12,8 @@ using Audiarr.Core.Interfaces;
 using Audiarr.Services.Users;
 using Serilog;
 using Serilog.Events;
+using Audiarr.Core.Entities;
+using Audiarr.Core.DTOs;
 
 // Configure Serilog - Docker-first approach with fixed paths
 var logPath = "/data/logs/audiarr-.log";
@@ -166,6 +168,36 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
+
+// Apply database migrations
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AudiarrContext>();
+        await context.Database.MigrateAsync();
+        Log.Information("Database migrations applied successfully");
+        
+        // Ensure admin user exists
+        var userService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+        var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");
+        if (!adminExists)
+        {
+            await userService.CreateUserAsync(new CreateUserRequest(
+                Username: "admin",
+                Email: "admin@audiarr.local",
+                Password: "admin",
+                Role: "admin"
+            ));
+            Log.Information("Default admin user created");
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "An error occurred while applying database migrations");
+        throw;
+    }
+}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
