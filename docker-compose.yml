@@ -1,16 +1,35 @@
+# Base docker-compose configuration for Audiarr
+# For development, use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# For production deployment, customize the music volume path below
+
+version: '3.8'
+
 services:
   audiarr:
-    build: .
+    image: ghcr.io/trevordavies095/audiarr:latest
+    container_name: audiarr
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./test-music:/music:ro
-      - audiarr_data:/data
+      # Data volume for database, logs, and artwork
+      - audiarr-data:/data
+      # Music library - UPDATE THIS PATH to your music directory
+      - ${MUSIC_PATH:-/path/to/your/music}:/music:ro
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
       - MUSIC_LIBRARY_PATH=/music
-    container_name: audiarr-server
-    restart: unless-stopped
+      - DATA_PATH=/data
+      # Optional: Set your timezone
+      - TZ=${TZ:-UTC}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
-  audiarr_data:
+  audiarr-data:
+    driver: local
