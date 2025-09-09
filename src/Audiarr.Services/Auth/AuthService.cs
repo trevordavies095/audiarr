@@ -41,6 +41,7 @@ public class AuthService : IAuthService
 
         // Update last login
         user.LastLogin = DateTime.UtcNow;
+        _context.Users.Update(user);  // Mark the user entity as modified
 
         // Generate tokens
         var accessToken = GenerateAccessToken(user);
@@ -56,7 +57,7 @@ public class AuthService : IAuthService
         };
 
         _context.Sessions.Add(session);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync();  // This will now save both the session and user changes
 
         _logger.LogInformation("User {Username} logged in successfully", username);
 
