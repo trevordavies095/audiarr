@@ -325,9 +325,9 @@ else
                             <h6 class="alert-heading">Password Reset Successfully!</h6>
                             <p>The new password for <strong>@resetPasswordUser?.Username</strong> is:</p>
                             <div class="input-group mb-2">
-                                <input type="text" class="form-control font-monospace" value="@generatedPassword" readonly />
+                                <input type="text" id="generatedPasswordInput" class="form-control font-monospace" value="@generatedPassword" readonly />
                                 <button class="btn btn-outline-secondary" type="button" @onclick="CopyPasswordToClipboard" title="Copy to clipboard">
-                                    <i class="bi bi-clipboard"></i> @(passwordCopied ? "Copied!" : "Copy")
+                                    <i class="bi bi-clipboard"></i> @(passwordCopied ? "Copied!" : passwordCopyError ? "Select & Copy" : "Copy")
                                 </button>
                             </div>
                             <hr>
@@ -458,6 +458,7 @@ else
     private string resetPasswordError = "";
     private string generatedPassword = "";
     private bool passwordCopied = false;
+    private bool passwordCopyError = false;
     
     private class CreateUserModel
     {
@@ -855,6 +856,7 @@ else
         generatedPassword = "";
         resetPasswordError = "";
         passwordCopied = false;
+        passwordCopyError = false;
         showResetPasswordModal = true;
     }
 
@@ -865,6 +867,7 @@ else
         generatedPassword = "";
         resetPasswordError = "";
         passwordCopied = false;
+        passwordCopyError = false;
         resetPasswordRequest = new ResetPasswordRequest();
     }
 
@@ -934,14 +937,48 @@ else
     {
         if (!string.IsNullOrEmpty(generatedPassword))
         {
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", generatedPassword);
-            passwordCopied = true;
-            StateHasChanged();
-            
-            // Reset the "Copied!" text after 2 seconds
-            await Task.Delay(2000);
-            passwordCopied = false;
-            StateHasChanged();
+            try
+            {
+                // Use the clipboard helper function with fallback
+                var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", generatedPassword, "generatedPasswordInput");
+                
+                if (success)
+                {
+                    passwordCopied = true;
+                    passwordCopyError = false;
+                    StateHasChanged();
+                    
+                    // Reset the "Copied!" text after 2 seconds
+                    await Task.Delay(2000);
+                    passwordCopied = false;
+                    StateHasChanged();
+                }
+                else
+                {
+                    // Clipboard copy failed, but text should be selected
+                    passwordCopyError = true;
+                    passwordCopied = false;
+                    StateHasChanged();
+                    
+                    // Show message for 3 seconds
+                    await Task.Delay(3000);
+                    passwordCopyError = false;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error copying to clipboard: {ex.Message}");
+                // Select the text for manual copy
+                await JSRuntime.InvokeVoidAsync("selectText", "generatedPasswordInput");
+                passwordCopyError = true;
+                StateHasChanged();
+                
+                // Show message for 3 seconds
+                await Task.Delay(3000);
+                passwordCopyError = false;
+                StateHasChanged();
+            }
         }
     }
 
