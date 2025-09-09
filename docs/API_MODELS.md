@@ -105,6 +105,63 @@ Represents a user account.
 | role | string | User role | "Admin" or "User" |
 | lastLogin | datetime? | Last login timestamp | ISO 8601, nullable |
 
+### UserListDto
+Extended user information for admin user management.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "johndoe",
+  "email": "john@example.com",
+  "role": "User",
+  "isActive": true,
+  "lastLogin": "2024-01-15T09:30:00Z",
+  "createdAt": "2024-01-01T00:00:00Z"
+}
+```
+
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| id | string (UUID) | Unique user identifier | UUID v4 |
+| username | string | User's username | 3-50 characters |
+| email | string | User's email address | Valid email format |
+| role | string | User role | "Admin" or "User" |
+| isActive | boolean | Account active status | true/false |
+| lastLogin | datetime? | Last login timestamp | ISO 8601, nullable |
+| createdAt | datetime | Account creation timestamp | ISO 8601 |
+
+### UserStatusRequest
+Request to update user account status.
+
+```json
+{
+  "isActive": false,
+  "reason": "Account suspended for policy violation"
+}
+```
+
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| isActive | boolean | Desired account status | Required |
+| reason | string? | Reason for status change | Optional, for audit log |
+
+### UserStatusResponse
+Response after updating user status.
+
+```json
+{
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "isActive": false,
+  "updatedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| userId | string (UUID) | User identifier | UUID v4 |
+| isActive | boolean | Current account status | true/false |
+| updatedAt | datetime | Timestamp of update | ISO 8601 |
+
 ## Music Entity Models
 
 ### Artist

@@ -327,6 +327,120 @@ GET /api/v2/tracks/{id}/play
 
 Returns track info with navigation links (next/previous).
 
+## User Management
+
+All user management endpoints require admin role authorization.
+
+### Users
+
+#### Get All Users
+`GET /api/v2/users`
+
+Query parameters:
+- `pageNumber` (default: 1)
+- `pageSize` (default: 20, max: 100)
+- `sortBy` (username|email|lastlogin|createdat)
+- `sortOrder` (asc|desc)
+- `searchTerm` (searches username and email)
+
+Response:
+```json
+{
+  "items": [
+    {
+      "id": "user_id",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "role": "user",
+      "isActive": true,
+      "lastLogin": "2024-01-15T10:30:00Z",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "totalCount": 50,
+  "pageNumber": 1,
+  "pageSize": 20,
+  "totalPages": 3
+}
+```
+
+#### Get User by ID
+`GET /api/v2/users/{id}`
+
+#### Create User
+`POST /api/v2/users`
+
+Request:
+```json
+{
+  "username": "new_user",
+  "email": "new@example.com",
+  "password": "SecurePassword123!",
+  "role": "user"  // "user" or "admin"
+}
+```
+
+#### Update User Status
+`PUT /api/v2/users/{id}/status`
+
+Enable or disable a user account. Disabled users cannot log in and their sessions are invalidated.
+
+Request:
+```json
+{
+  "isActive": false,
+  "reason": "Account suspended for policy violation"  // optional
+}
+```
+
+Response:
+```json
+{
+  "userId": "user_id",
+  "isActive": false,
+  "updatedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+Restrictions:
+- Admins cannot disable their own account
+- Cannot disable the last admin account
+- Disabling a user invalidates all their sessions
+
+#### Reset User Password
+`POST /api/v2/users/{id}/reset-password`
+
+Request:
+```json
+{
+  "generateRandom": true,  // or false with manualPassword
+  "manualPassword": "NewPassword123!"  // required if generateRandom is false
+}
+```
+
+Response:
+```json
+{
+  "newPassword": "GeneratedPassword123!",
+  "method": "generated"  // or "manual"
+}
+```
+
+#### Delete User
+`DELETE /api/v2/users/{id}`
+
+Permanently deletes a user account. Admins cannot delete their own account.
+
+#### Check Username Availability
+`GET /api/v2/users/check-username/{username}`
+
+Returns `true` if username is available.
+
+#### Check Email Availability
+`GET /api/v2/users/check-email/{email}`
+
+Returns `true` if email is available.
+
 ## WebSocket/SignalR
 
 Audiarr uses SignalR for real-time updates. Connect to the hub at `/hubs/scan`.
