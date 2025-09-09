@@ -9,7 +9,7 @@ public class User : BaseEntity
     public bool IsActive { get; set; } = true;
     public DateTime? LastLogin { get; set; }
     public string? PreferencesJson { get; set; }
-    
+
     // Navigation properties
     public virtual ICollection<Playlist> Playlists { get; set; } = new List<Playlist>();
 }

@@ -22,19 +22,19 @@ public static class AuthEndpoints
             HttpContext httpContext) =>
         {
             var result = await authService.LoginAsync(request.Username, request.Password);
-            
+
             if (result == null)
             {
                 return Results.Unauthorized();
             }
-            
+
             // Set device info from request headers
             if (httpContext.Request.Headers.TryGetValue("User-Agent", out var userAgent))
             {
                 // This would be used to update the session with device info
                 // For now, we'll just log it
             }
-            
+
             return Results.Ok(result);
         })
         .WithName("Login")
@@ -49,12 +49,12 @@ public static class AuthEndpoints
             IAuthService authService) =>
         {
             var result = await authService.RefreshTokenAsync(request.RefreshToken);
-            
+
             if (result == null)
             {
                 return Results.Unauthorized();
             }
-            
+
             return Results.Ok(result);
         })
         .WithName("RefreshToken")
@@ -70,25 +70,25 @@ public static class AuthEndpoints
         {
             // Get refresh token from request body or header
             string? refreshToken = null;
-            
+
             if (httpContext.Request.HasJsonContentType())
             {
                 var request = await httpContext.Request.ReadFromJsonAsync<RefreshTokenRequest>();
                 refreshToken = request?.RefreshToken;
             }
-            
+
             if (string.IsNullOrEmpty(refreshToken))
             {
                 return Results.BadRequest("Refresh token is required");
             }
-            
+
             var result = await authService.LogoutAsync(refreshToken);
-            
+
             if (!result)
             {
                 return Results.BadRequest("Failed to logout");
             }
-            
+
             return Results.NoContent();
         })
         .WithName("Logout")
@@ -105,12 +105,12 @@ public static class AuthEndpoints
             AudiarrContext context) =>
         {
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            
+
             if (string.IsNullOrEmpty(userId))
             {
                 return Results.Unauthorized();
             }
-            
+
             var dbUser = await context.Users
                 .Where(u => u.Id == userId)
                 .Select(u => new UserDto(
@@ -120,12 +120,12 @@ public static class AuthEndpoints
                     u.Role,
                     u.LastLogin))
                 .FirstOrDefaultAsync();
-            
+
             if (dbUser == null)
             {
                 return Results.NotFound();
             }
-            
+
             return Results.Ok(dbUser);
         })
         .WithName("GetCurrentUser")
@@ -144,12 +144,12 @@ public static class AuthEndpoints
             AudiarrContext context) =>
         {
             var username = user.FindFirst(ClaimTypes.Name)?.Value;
-            
+
             if (string.IsNullOrEmpty(username))
             {
                 return Results.Unauthorized();
             }
-            
+
             // Validate current password
             var validUser = await authService.ValidateUserAsync(username, request.CurrentPassword);
             if (validUser == null)
@@ -168,7 +168,7 @@ public static class AuthEndpoints
             userToUpdate.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             context.Update(userToUpdate);  // Mark entity as modified since we're using NoTracking globally
             await context.SaveChangesAsync();
-            
+
             // Revoke all sessions for security
             await authService.RevokeAllUserSessionsAsync(userToUpdate.Id);
             

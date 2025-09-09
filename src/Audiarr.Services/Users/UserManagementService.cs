@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Audiarr.Core.DTOs;
 using Audiarr.Core.Entities;
+using Audiarr.Core.Interfaces;
 using Audiarr.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -18,6 +19,8 @@ public interface IUserManagementService
     Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null);
     Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null);
     Task<ResetPasswordResponse> ResetPasswordAsync(string targetUserId, string performedByUserId, ResetPasswordRequest request);
+    Task<UserStatusResponse> UpdateUserStatusAsync(string targetUserId, string performedByUserId, UserStatusRequest request);
+    Task DeleteUserAsync(string targetUserId, string performedByUserId);
 }
 
 public class UserManagementService : IUserManagementService
@@ -25,17 +28,20 @@ public class UserManagementService : IUserManagementService
     private readonly AudiarrContext _context;
     private readonly IMemoryCache _cache;
     private readonly ILogger<UserManagementService> _logger;
+    private readonly IAuthService _authService;
     private const string UserListCacheKeyPrefix = "userlist_";
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
 
     public UserManagementService(
         AudiarrContext context,
         IMemoryCache cache,
-        ILogger<UserManagementService> logger)
+        ILogger<UserManagementService> logger,
+        IAuthService authService)
     {
         _context = context;
         _cache = cache;
         _logger = logger;
+        _authService = authService;
     }
 
     public async Task<PaginatedResponse<UserListDto>> GetUsersAsync(UserListRequest request)
@@ -315,5 +321,137 @@ public class UserManagementService : IUserManagementService
         }
 
         return new string(password);
+    }
+
+    public async Task<UserStatusResponse> UpdateUserStatusAsync(string targetUserId, string performedByUserId, UserStatusRequest request)
+    {
+        _logger.LogInformation("Updating user {TargetUserId} status to {IsActive} by admin {AdminUserId}", 
+            targetUserId, request.IsActive, performedByUserId);
+
+        // Prevent self-disable for admins
+        if (!request.IsActive && targetUserId == performedByUserId)
+        {
+            throw new InvalidOperationException("Cannot disable your own account");
+        }
+
+        var targetUser = await _context.Users.FindAsync(targetUserId);
+        if (targetUser == null)
+        {
+            throw new KeyNotFoundException($"User with ID '{targetUserId}' not found");
+        }
+
+        // Prevent disabling last admin
+        if (!request.IsActive && targetUser.Role.ToLower() == "admin")
+        {
+            var activeAdminCount = await _context.Users
+                .CountAsync(u => u.Role.ToLower() == "admin" && u.IsActive && u.Id != targetUserId);
+
+            if (activeAdminCount == 0)
+            {
+                throw new InvalidOperationException("Cannot disable the last admin account");
+            }
+        }
+
+        // Update status
+        targetUser.IsActive = request.IsActive;
+        targetUser.UpdatedAt = DateTime.UtcNow;
+
+        // Invalidate sessions if disabling
+        if (!request.IsActive)
+        {
+            await _authService.RevokeAllUserSessionsAsync(targetUserId);
+            _logger.LogInformation("Revoked all sessions for disabled user {UserId}", targetUserId);
+        }
+
+        // Create audit log entry
+        var auditLog = new AuditLog
+        {
+            Action = request.IsActive ? "UserEnabled" : "UserDisabled",
+            TargetUserId = targetUserId,
+            PerformedByUserId = performedByUserId,
+            Details = $"{(request.IsActive ? "Enabled" : "Disabled")} user: {targetUser.Username}. Reason: {request.Reason ?? "Not specified"}",
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.AuditLogs.Add(auditLog);
+
+        // Save changes
+        await _context.SaveChangesAsync();
+
+        // Invalidate cache since user data has changed
+        InvalidateCache();
+
+        _logger.LogInformation("Successfully updated user {TargetUserId} status to {IsActive}", targetUserId, request.IsActive);
+
+        return new UserStatusResponse(
+            targetUser.Id,
+            targetUser.IsActive,
+            targetUser.UpdatedAt
+        );
+    }
+
+    public async Task DeleteUserAsync(string targetUserId, string performedByUserId)
+    {
+        _logger.LogInformation("Deleting user {TargetUserId} by admin {AdminUserId}", targetUserId, performedByUserId);
+
+        // Check if target user exists
+        var targetUser = await _context.Users.FindAsync(targetUserId);
+        if (targetUser == null)
+        {
+            throw new KeyNotFoundException($"User with ID '{targetUserId}' not found");
+        }
+
+        // Prevent admin from deleting their own account
+        if (targetUserId == performedByUserId)
+        {
+            throw new InvalidOperationException("Admins cannot delete their own account");
+        }
+
+        // Check if the target user is the last admin
+        if (targetUser.Role.ToLower() == "admin")
+        {
+            var adminCount = await _context.Users
+                .Where(u => u.Role.ToLower() == "admin" && u.Id != targetUserId)
+                .CountAsync();
+
+            if (adminCount == 0)
+            {
+                throw new InvalidOperationException("Cannot delete the last admin account");
+            }
+        }
+
+        // Delete all sessions for this user (sessions include refresh tokens)
+        var userSessions = await _context.Sessions
+            .Where(s => s.UserId == targetUserId)
+            .ToListAsync();
+
+        if (userSessions.Any())
+        {
+            _context.Sessions.RemoveRange(userSessions);
+            _logger.LogInformation("Deleted {SessionCount} sessions for user {UserId}", userSessions.Count, targetUserId);
+        }
+
+        // Create audit log entry before deletion
+        var auditLog = new AuditLog
+        {
+            Action = "UserDeleted",
+            TargetUserId = targetUserId,
+            PerformedByUserId = performedByUserId,
+            Details = $"User '{targetUser.Username}' permanently deleted",
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.AuditLogs.Add(auditLog);
+
+        // Delete the user
+        _context.Users.Remove(targetUser);
+
+        // Save all changes
+        await _context.SaveChangesAsync();
+
+        // Invalidate cache since user data has changed
+        InvalidateCache();
+
+        _logger.LogInformation("Successfully deleted user {TargetUserId} ({Username})", targetUserId, targetUser.Username);
     }
 }

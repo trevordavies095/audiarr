@@ -20,7 +20,7 @@ public class ScannerBackgroundService : BackgroundService
         _serviceProvider = serviceProvider;
         _logger = logger;
         // _hubContext = hubContext; // TODO: Move to API project
-        
+
         // Create unbounded channel for scan requests
         _queue = Channel.CreateUnbounded<ScanRequest>();
     }
@@ -30,7 +30,7 @@ public class ScannerBackgroundService : BackgroundService
         try
         {
             await _queue.Writer.WriteAsync(request);
-            _logger.LogInformation("Scan request queued: {RequestId} for path: {Path}", 
+            _logger.LogInformation("Scan request queued: {RequestId} for path: {Path}",
                 request.RequestId, request.LibraryPath);
             return true;
         }
@@ -50,23 +50,23 @@ public class ScannerBackgroundService : BackgroundService
             try
             {
                 _logger.LogInformation("Processing scan request: {RequestId}", request.RequestId);
-                
+
                 using var scope = _serviceProvider.CreateScope();
                 var scanner = scope.ServiceProvider.GetRequiredService<ILibraryScanner>();
-                
+
                 var progress = new Progress<ScanProgress>(async p =>
                 {
-                    _logger.LogDebug("Scan progress: {Percent:F1}% ({Current}/{Total})", 
+                    _logger.LogDebug("Scan progress: {Percent:F1}% ({Current}/{Total})",
                         p.PercentComplete, p.ProcessedFiles, p.TotalFiles);
-                    
+
                     // TODO: Send progress to SignalR clients from API project
                 });
 
                 var result = await scanner.ScanAsync(request.LibraryPath, progress, stoppingToken);
-                
+
                 _logger.LogInformation("Scan completed: {RequestId}. Duration: {Duration}, New: {New}, Updated: {Updated}, Errors: {Errors}",
                     request.RequestId, result.Duration, result.NewTracks, result.UpdatedTracks, result.Errors);
-                
+
                 // TODO: Send completion to SignalR clients from API project
             }
             catch (Exception ex)

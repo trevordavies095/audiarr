@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  audiarr:
+    image: audiarr:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      cache_from:
+        - audiarr:latest
+    container_name: audiarr-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Music library - read-only for security
+      - ${MUSIC_LIBRARY_PATH:-/path/to/music}:/music:ro
+      # Persistent data storage
+      - audiarr_data:/data
+      # Logs volume for debugging
+      - audiarr_logs:/data/logs
+      # Artwork storage
+      - audiarr_artwork:/data/artwork
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - MUSIC_LIBRARY_PATH=/music
+      - DATA_PATH=/data
+      # JWT settings - use secrets in production
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY:-YourSuperSecretKeyThatShouldBeAtLeast32Characters!}
+      - JwtSettings__Issuer=${JWT_ISSUER:-AudiarrAPI}
+      - JwtSettings__Audience=${JWT_AUDIENCE:-AudiarrClient}
+      - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
+      - JwtSettings__RefreshExpirationDays=${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      # Logging configuration
+      - Serilog__MinimumLevel__Default=Information
+      - Serilog__MinimumLevel__Override__Microsoft=Warning
+      - Serilog__MinimumLevel__Override__Microsoft.AspNetCore=Warning
+      - Serilog__MinimumLevel__Override__Microsoft.EntityFrameworkCore=Warning
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - audiarr_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Set to true if possible, after testing
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100M
+
+volumes:
+  audiarr_data:
+    driver: local
+  audiarr_logs:
+    driver: local
+  audiarr_artwork:
+    driver: local
+
+networks:
+  audiarr_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

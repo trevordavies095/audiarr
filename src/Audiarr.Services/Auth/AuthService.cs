@@ -41,12 +41,12 @@ public class AuthService : IAuthService
 
         // Update last login
         user.LastLogin = DateTime.UtcNow;
-        
+
         // Generate tokens
         var accessToken = GenerateAccessToken(user);
         var refreshToken = GenerateRefreshToken();
         var refreshTokenHash = HashToken(refreshToken);
-        
+
         // Create session
         var session = new Session
         {
@@ -54,12 +54,12 @@ public class AuthService : IAuthService
             RefreshTokenHash = refreshTokenHash,
             ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
         };
-        
+
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
-        
+
         _logger.LogInformation("User {Username} logged in successfully", username);
-        
+
         return new LoginResponse(
             accessToken,
             refreshToken,
@@ -71,24 +71,24 @@ public class AuthService : IAuthService
     public async Task<TokenResponse?> RefreshTokenAsync(string refreshToken)
     {
         var refreshTokenHash = HashToken(refreshToken);
-        
+
         var session = await _context.Sessions
             .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.RefreshTokenHash == refreshTokenHash);
-        
+
         if (session == null || !session.IsActive)
         {
             _logger.LogWarning("Invalid or expired refresh token attempted");
             return null;
         }
-        
+
         // Rotate refresh token
         session.RevokedAt = DateTime.UtcNow;
-        
+
         var newAccessToken = GenerateAccessToken(session.User);
         var newRefreshToken = GenerateRefreshToken();
         var newRefreshTokenHash = HashToken(newRefreshToken);
-        
+
         // Create new session
         var newSession = new Session
         {
@@ -100,12 +100,12 @@ public class AuthService : IAuthService
             UserAgent = session.UserAgent,
             ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
         };
-        
+
         _context.Sessions.Add(newSession);
         await _context.SaveChangesAsync();
-        
+
         _logger.LogInformation("Tokens refreshed for user {UserId}", session.UserId);
-        
+
         return new TokenResponse(
             newAccessToken,
             newRefreshToken,
@@ -116,20 +116,20 @@ public class AuthService : IAuthService
     public async Task<bool> LogoutAsync(string refreshToken)
     {
         var refreshTokenHash = HashToken(refreshToken);
-        
+
         var session = await _context.Sessions
             .FirstOrDefaultAsync(s => s.RefreshTokenHash == refreshTokenHash);
-        
+
         if (session == null)
         {
             return false;
         }
-        
+
         session.RevokedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        
+
         _logger.LogInformation("User session revoked for user {UserId}", session.UserId);
-        
+
         return true;
     }
 
@@ -138,16 +138,16 @@ public class AuthService : IAuthService
         var sessions = await _context.Sessions
             .Where(s => s.UserId == userId && s.RevokedAt == null)
             .ToListAsync();
-        
+
         foreach (var session in sessions)
         {
             session.RevokedAt = DateTime.UtcNow;
         }
-        
+
         await _context.SaveChangesAsync();
-        
+
         _logger.LogInformation("All sessions revoked for user {UserId}", userId);
-        
+
         return true;
     }
 
@@ -155,7 +155,7 @@ public class AuthService : IAuthService
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
-        
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id),
@@ -165,7 +165,7 @@ public class AuthService : IAuthService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
-        
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
@@ -176,7 +176,7 @@ public class AuthService : IAuthService
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature)
         };
-        
+
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
@@ -193,17 +193,17 @@ public class AuthService : IAuthService
     {
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
-        
+
         if (user == null || !user.IsActive)
         {
             return null;
         }
-        
+
         if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
             return null;
         }
-        
+
         return user;
     }
 

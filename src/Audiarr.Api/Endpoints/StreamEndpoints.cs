@@ -24,24 +24,24 @@ public static class StreamEndpoints
 
             var fileInfo = new FileInfo(track.FilePath);
             var fileLength = fileInfo.Length;
-            
+
             // Determine content type based on file extension
             var contentType = GetAudioContentType(track.FilePath);
-            
+
             // Check if this is a range request
             var rangeHeader = context.Request.Headers.Range.ToString();
-            
+
             if (!string.IsNullOrEmpty(rangeHeader))
             {
                 // Parse range header
                 var range = RangeHeaderValue.Parse(rangeHeader);
                 var ranges = range.Ranges.FirstOrDefault();
-                
+
                 if (ranges != null)
                 {
                     var start = ranges.From ?? 0;
                     var end = ranges.To ?? fileLength - 1;
-                    
+
                     // Validate range
                     if (start >= fileLength || end >= fileLength)
                     {
@@ -49,39 +49,39 @@ public static class StreamEndpoints
                         context.Response.Headers.ContentRange = $"bytes */{fileLength}";
                         return Results.Empty;
                     }
-                    
+
                     var contentLength = end - start + 1;
-                    
+
                     // Set response headers for partial content
                     context.Response.StatusCode = 206; // Partial Content
                     context.Response.Headers.ContentType = contentType;
                     context.Response.Headers.ContentLength = contentLength;
                     context.Response.Headers.AcceptRanges = "bytes";
                     context.Response.Headers.ContentRange = $"bytes {start}-{end}/{fileLength}";
-                    
+
                     // Stream the requested range
                     using var fileStream = new FileStream(track.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     fileStream.Seek(start, SeekOrigin.Begin);
-                    
+
                     var buffer = new byte[64 * 1024]; // 64KB buffer
                     var bytesRemaining = contentLength;
-                    
+
                     while (bytesRemaining > 0)
                     {
                         var bytesToRead = (int)Math.Min(buffer.Length, bytesRemaining);
                         var bytesRead = await fileStream.ReadAsync(buffer, 0, bytesToRead);
-                        
+
                         if (bytesRead == 0)
                             break;
-                            
+
                         await context.Response.Body.WriteAsync(buffer, 0, bytesRead);
                         bytesRemaining -= bytesRead;
                     }
-                    
+
                     return Results.Empty;
                 }
             }
-            
+
             // No range request - return entire file
             context.Response.Headers.AcceptRanges = "bytes";
             return Results.File(track.FilePath, contentType, enableRangeProcessing: true);
@@ -99,10 +99,10 @@ public static class StreamEndpoints
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks.OrderBy(t => t.DiscNumber).ThenBy(t => t.TrackNumber))
                 .FirstOrDefaultAsync(a => a.Id == id);
-                
+
             if (album == null)
                 return Results.NotFound(new { error = "Album not found" });
-                
+
             var tracks = album.Tracks.Select((t, index) => new
             {
                 t.Id,
@@ -115,7 +115,7 @@ public static class StreamEndpoints
                 NextTrackId = index < album.Tracks.Count - 1 ? album.Tracks.ElementAt(index + 1).Id : null,
                 PreviousTrackId = index > 0 ? album.Tracks.ElementAt(index - 1).Id : null
             }).ToList();
-            
+
             return Results.Ok(new
             {
                 album = new
@@ -147,10 +147,10 @@ public static class StreamEndpoints
                     .ThenInclude(pt => pt.Track)
                         .ThenInclude(t => t.Album)
                 .FirstOrDefaultAsync(p => p.Id == id);
-                
+
             if (playlist == null)
                 return Results.NotFound(new { error = "Playlist not found" });
-                
+
             var tracks = playlist.PlaylistTracks
                 .OrderBy(pt => pt.Position)
                 .Select((pt, index) => new
@@ -163,15 +163,15 @@ public static class StreamEndpoints
                     DurationMs = pt.Track.DurationMs,
                     StreamUrl = $"/api/v2/tracks/{pt.Track.Id}/stream",
                     Position = pt.Position,
-                    NextTrackId = index < playlist.PlaylistTracks.Count - 1 
-                        ? playlist.PlaylistTracks.OrderBy(x => x.Position).ElementAt(index + 1).TrackId 
+                    NextTrackId = index < playlist.PlaylistTracks.Count - 1
+                        ? playlist.PlaylistTracks.OrderBy(x => x.Position).ElementAt(index + 1).TrackId
                         : null,
-                    PreviousTrackId = index > 0 
-                        ? playlist.PlaylistTracks.OrderBy(x => x.Position).ElementAt(index - 1).TrackId 
+                    PreviousTrackId = index > 0
+                        ? playlist.PlaylistTracks.OrderBy(x => x.Position).ElementAt(index - 1).TrackId
                         : null
                 })
                 .ToList();
-            
+
             return Results.Ok(new
             {
                 playlist = new
@@ -197,14 +197,14 @@ public static class StreamEndpoints
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
                 .FirstOrDefaultAsync(t => t.Id == id);
-                
+
             if (track == null)
                 return Results.NotFound(new { error = "Track not found" });
-                
+
             // Find next and previous tracks in the same album if available
             string? nextTrackId = null;
             string? previousTrackId = null;
-            
+
             if (track.AlbumId != null)
             {
                 var albumTracks = await db.Tracks
@@ -213,14 +213,14 @@ public static class StreamEndpoints
                     .ThenBy(t => t.TrackNumber)
                     .Select(t => t.Id)
                     .ToListAsync();
-                    
+
                 var currentIndex = albumTracks.IndexOf(track.Id);
                 if (currentIndex > 0)
                     previousTrackId = albumTracks[currentIndex - 1];
                 if (currentIndex < albumTracks.Count - 1)
                     nextTrackId = albumTracks[currentIndex + 1];
             }
-            
+
             return Results.Ok(new
             {
                 track = new

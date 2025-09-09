@@ -55,9 +55,11 @@ TestResults/
 
 CLAUDE_REQUIREMENTS/
 
-## Ignore test music directory
+## Ignore test music directory (moved to test-data for build performance)
 test-music/
 */test-music/
+test-data/
+**/test-data/
 
 ## Ignore local data directory
 Data/
@@ -67,5 +69,16 @@ Data/
 artwork/
 */artwork/
 IMPLEMENTATION_PLAN_USER_LIST.md
-.claude/CLAUDE.md
 .github/workflows/docker-build.yml.bak
+
+## Ignore environment files
+.env
+.env.*
+!.env.example
+
+## Ignore logs
+Logs/
+*/Logs/
+*.log
+
+.claude

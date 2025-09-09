@@ -26,9 +26,19 @@ LICENSE
 README.md
 .gitattributes
 archive/
+# Test music files (18GB - major build performance impact)
+**/test-music/
 test-music/
+src/Audiarr.Api/test-music/
+**/Audiarr.Api/test-music/
 *.db
 *.db-shm
 *.db-wal
 CLAUDE_REQUIREMENTS/
 *.md
+**/Data/
+Data/
+**/Logs/
+Logs/
+**/artwork/
+artwork/
