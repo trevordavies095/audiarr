@@ -118,7 +118,7 @@ public class LibraryScanner : ILibraryScanner
         {
             // Calculate file hash for deduplication
             var fileHash = await CalculateFileHashAsync(filePath);
-            
+
             // Check if track already exists
             var existingTrack = await _context.Tracks
                 .Include(t => t.Album)
@@ -133,7 +133,7 @@ public class LibraryScanner : ILibraryScanner
             // Get or create artist
             var artistName = !string.IsNullOrWhiteSpace(tag.FirstAlbumArtist) ? tag.FirstAlbumArtist :
                             !string.IsNullOrWhiteSpace(tag.FirstPerformer) ? tag.FirstPerformer : "Unknown Artist";
-            
+
             var artist = await GetOrCreateArtistAsync(artistName, cancellationToken);
 
             // Get or create album
@@ -276,9 +276,9 @@ public class LibraryScanner : ILibraryScanner
     private string GetArtworkDirectory()
     {
         // Use Data/artwork for development, /data/artwork for Docker
-        var baseDir = _environment.IsDevelopment() 
-            ? Path.Combine(Directory.GetCurrentDirectory(), "Data")
-            : "/data";
+        var baseDir = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+            ? "/data"
+            : Path.Combine(Directory.GetCurrentDirectory(), "Data");
         return Path.Combine(baseDir, "artwork");
     }
 
@@ -350,7 +350,7 @@ public class LibraryScanner : ILibraryScanner
                 var artworkFile = Directory.GetFiles(artworkDir, "*.jpg")
                     .Concat(Directory.GetFiles(artworkDir, "*.jpeg"))
                     .Concat(Directory.GetFiles(artworkDir, "*.png"))
-                    .Where(f => Path.GetFileName(f).ToLower().Contains("front") || 
+                    .Where(f => Path.GetFileName(f).ToLower().Contains("front") ||
                                Path.GetFileName(f).ToLower().Contains("cover"))
                     .FirstOrDefault();
 
@@ -406,15 +406,15 @@ public class LibraryScanner : ILibraryScanner
     {
         using var stream = File.OpenRead(filePath);
         using var sha256 = SHA256.Create();
-        
+
         // Read first 64KB and last 64KB for faster hashing of large files
         const int sampleSize = 65536;
         var buffer = new byte[sampleSize];
-        
+
         // Read beginning
         var bytesRead = await stream.ReadAsync(buffer, 0, sampleSize);
         sha256.TransformBlock(buffer, 0, bytesRead, buffer, 0);
-        
+
         // Read end if file is large enough
         if (stream.Length > sampleSize * 2)
         {
@@ -422,11 +422,11 @@ public class LibraryScanner : ILibraryScanner
             bytesRead = await stream.ReadAsync(buffer, 0, sampleSize);
             sha256.TransformBlock(buffer, 0, bytesRead, buffer, 0);
         }
-        
+
         // Include file size in hash
         var sizeBytes = BitConverter.GetBytes(stream.Length);
         sha256.TransformFinalBlock(sizeBytes, 0, sizeBytes.Length);
-        
+
         return Convert.ToBase64String(sha256.Hash!);
     }
 
@@ -446,7 +446,7 @@ public class LibraryScanner : ILibraryScanner
     {
         var prefixes = new[] { "the ", "a ", "an " };
         var lowerName = name.ToLowerInvariant();
-        
+
         foreach (var prefix in prefixes)
         {
             if (lowerName.StartsWith(prefix))
@@ -454,7 +454,7 @@ public class LibraryScanner : ILibraryScanner
                 return name.Substring(prefix.Length) + ", " + name.Substring(0, prefix.Length - 1);
             }
         }
-        
+
         return name;
     }
 }

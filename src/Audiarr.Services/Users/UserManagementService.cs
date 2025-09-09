@@ -18,6 +18,7 @@ public interface IUserManagementService
     Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null);
     Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null);
     Task<ResetPasswordResponse> ResetPasswordAsync(string targetUserId, string performedByUserId, ResetPasswordRequest request);
+    Task DeleteUserAsync(string targetUserId, string performedByUserId);
 }
 
 public class UserManagementService : IUserManagementService
@@ -315,5 +316,70 @@ public class UserManagementService : IUserManagementService
         }
 
         return new string(password);
+    }
+
+    public async Task DeleteUserAsync(string targetUserId, string performedByUserId)
+    {
+        _logger.LogInformation("Deleting user {TargetUserId} by admin {AdminUserId}", targetUserId, performedByUserId);
+
+        // Check if target user exists
+        var targetUser = await _context.Users.FindAsync(targetUserId);
+        if (targetUser == null)
+        {
+            throw new KeyNotFoundException($"User with ID '{targetUserId}' not found");
+        }
+
+        // Prevent admin from deleting their own account
+        if (targetUserId == performedByUserId)
+        {
+            throw new InvalidOperationException("Admins cannot delete their own account");
+        }
+
+        // Check if the target user is the last admin
+        if (targetUser.Role.ToLower() == "admin")
+        {
+            var adminCount = await _context.Users
+                .Where(u => u.Role.ToLower() == "admin" && u.Id != targetUserId)
+                .CountAsync();
+
+            if (adminCount == 0)
+            {
+                throw new InvalidOperationException("Cannot delete the last admin account");
+            }
+        }
+
+        // Delete all sessions for this user (sessions include refresh tokens)
+        var userSessions = await _context.Sessions
+            .Where(s => s.UserId == targetUserId)
+            .ToListAsync();
+
+        if (userSessions.Any())
+        {
+            _context.Sessions.RemoveRange(userSessions);
+            _logger.LogInformation("Deleted {SessionCount} sessions for user {UserId}", userSessions.Count, targetUserId);
+        }
+
+        // Create audit log entry before deletion
+        var auditLog = new AuditLog
+        {
+            Action = "UserDeleted",
+            TargetUserId = targetUserId,
+            PerformedByUserId = performedByUserId,
+            Details = $"User '{targetUser.Username}' permanently deleted",
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.AuditLogs.Add(auditLog);
+
+        // Delete the user
+        _context.Users.Remove(targetUser);
+
+        // Save all changes
+        await _context.SaveChangesAsync();
+
+        // Invalidate cache since user data has changed
+        InvalidateCache();
+
+        _logger.LogInformation("Successfully deleted user {TargetUserId} ({Username})", targetUserId, targetUser.Username);
     }
 }

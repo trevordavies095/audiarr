@@ -60,6 +60,16 @@ public static class UserEndpoints
             .Produces(401)
             .Produces(403);
 
+        group.MapDelete("/{userId}", DeleteUser)
+            .WithName("DeleteUser")
+            .WithSummary("Delete a user")
+            .WithDescription("Permanently deletes a user account. Admins cannot delete their own account.")
+            .Produces(204)
+            .Produces<ProblemDetails>(400)
+            .Produces(404)
+            .Produces(401)
+            .Produces(403);
+
         return app;
     }
 
@@ -231,6 +241,40 @@ public static class UserEndpoints
                 detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest
             );
+        }
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult, NotFound>> DeleteUser(
+        IUserManagementService userService,
+        HttpContext httpContext,
+        string userId,
+        ILogger<IUserManagementService> logger)
+    {
+        var adminUserId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(adminUserId))
+        {
+            return TypedResults.Problem(
+                detail: "Admin user ID not found in token",
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        try
+        {
+            await userService.DeleteUserAsync(userId, adminUserId);
+            return TypedResults.NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning("Failed to delete user {UserId}: {Message}", userId, ex.Message);
+            return TypedResults.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+        catch (KeyNotFoundException)
+        {
+            return TypedResults.NotFound();
         }
     }
 }

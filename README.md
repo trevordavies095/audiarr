@@ -1,58 +1,170 @@
 # Audiarr
 
-Audiarr is a selfhostable, lightweight music server that enables users to listen to their music from anywhere in the world. The primary goal of this project is to provide a robust backend that can efficiently manage and stream your personal music library. While the focus is on backend functionality, a very basic client has been developed to test the core features. In the future, a more polished and fully featured UI may be added.
+A self-hosted music streaming server built with .NET 9 that provides a comprehensive API for managing and streaming your personal music library. Designed as a backend service for client applications to integrate with.
 
 ## Features
 
-- **Selfhostable & Lightweight:**  
-  Designed to run on your own hardware, Audiarr is optimized for performance and minimal resource usage. Docker to eventually come if I can figure out a path for this project. 
+- **Music Library Management**: Automatic scanning and metadata extraction for all common audio formats (MP3, FLAC, M4A, AAC, OGG, Opus, WAV, WMA, ALAC, APE, WavPack)
+- **RESTful API**: Complete API v2 with JWT authentication and refresh tokens
+- **Audio Streaming**: HTTP range request support for efficient streaming and seeking
+- **Admin Interface**: Built-in Blazor Server admin panel for library management and testing
+- **Real-time Updates**: SignalR/WebSocket support for live scan progress and notifications
+- **Album Artwork**: Automatic extraction and serving of embedded album art
+- **Search**: Full-text search across artists, albums, and tracks
+- **Docker Support**: Optimized Alpine Linux containers with multi-stage builds
 
-- **Music Library Management:**  
-  The server scans a specified directory for audio files, extracts metadata (such as track title, artist, album, release year, genre, track number, duration, and more), and stores the information in a SQLite database. It also supports synchronizing changes by adding new tracks and removing deleted ones.
+**Note**: While the server includes a web UI for music playback, this is primarily for testing and administration. Audiarr is designed as a backend service for dedicated client applications to integrate with.
 
-- **Streaming:**  
-  Users can stream music files over HTTP using range processing to support seeking.
+## Tech Stack
 
-- **Basic Client for Testing:**  
-  A very basic [web client](https://github.com/trevordavies095/audiarr-client) is included to test and demonstrate the backend functionality. This client currently allows you to:
-  - Connect to the server (locally or remotely).
-  - View your music library in a simple table format.
-  - Play tracks by double-clicking on them.
-  - Initiate a scan to synchronize changes.
+- **.NET 9** with C# 13
+- **Entity Framework Core 9** with SQLite
+- **Blazor Server** for admin interface
+- **SignalR** for real-time communication
+- **Serilog** for structured logging
+- **Docker** with Alpine Linux base images
 
-## Current Status
+## Quick Start
 
-- **Backend First:**  
-  The primary focus is on building and refining the backend functionality. The server is built with ASP.NET Core and uses Entity Framework Core with SQLite for data storage.
-  
-- **Basic Client:**  
-  A rudimentary React-based [client](https://github.com/trevordavies095/audiarr-client) is available for testing purposes. This client allows you to interact with the server and validate its features. A more fully featured, polished UI may be developed in the future, but for now, the emphasis remains on the server’s core capabilities.
+### Using Docker Compose
 
-## Get Started
-
-1. Build the image
+1. Clone the repository:
 ```bash
-docker build -t audiarr-server:latest .
+git clone https://github.com/trevordavies095/audiarr.git
+cd audiarr
 ```
 
-2. Run the Server
-Use Docker Compose to start the Audiarr server:
+2. Create docker-compose.yml or use the provided one:
+```yaml
+services:
+  audiarr:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - /path/to/your/music:/music:ro
+      - audiarr_data:/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+volumes:
+  audiarr_data:
+```
+
+3. Start the server:
 ```bash
 docker-compose up -d
 ```
 
-3. Scan Your Music Library
-After starting the server, initiate a library scan to index your music files:
+4. Access the admin interface at `http://localhost:8080/admin`
+   - Default credentials: `admin` / `admin`
+
+5. Initiate a library scan from the admin panel or via API
+
+### Using Pre-built Docker Image
+
 ```bash
-curl -X POST http://localhost:5279/api/library/scan
+docker run -d \
+  --name audiarr \
+  -p 8080:8080 \
+  -v /path/to/your/music:/music:ro \
+  -v audiarr_data:/data \
+  ghcr.io/trevordavies095/audiarr:latest
 ```
 
-4. Connect to the Server (Optional: Using Audiarr Client)
-If you're using Audiarr Client:
-- Navigate to the client in your browser
-- Input the server URL (e.g., http://localhost:5279)
-- Start browsing and playing your music!
+## API Usage
 
-## API Endpoints
+### Authentication
+```bash
+# Login
+curl -X POST http://localhost:8080/api/v2/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
 
-You can view endpoints by navigating to `http://localhost:5279/Swagger`
+# Returns: { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." }
+```
+
+### Library Operations
+```bash
+# Start library scan
+curl -X POST http://localhost:8080/api/v2/scanner/scan \
+  -H "Authorization: Bearer <token>"
+
+# Get all tracks
+curl http://localhost:8080/api/v2/tracks \
+  -H "Authorization: Bearer <token>"
+
+# Stream a track
+curl http://localhost:8080/api/v2/stream/{trackId} \
+  -H "Authorization: Bearer <token>" \
+  -H "Range: bytes=0-" \
+  --output track.mp3
+```
+
+## Documentation
+
+Comprehensive documentation is available in the `/docs` directory:
+
+- [API Integration Guide](docs/API_INTEGRATION.md) - Complete API reference
+- [Quick Start Guide](docs/QUICK_START.md) - Detailed setup instructions
+- [API Models](docs/API_MODELS.md) - Data structures and DTOs
+- [iOS Client Guide](docs/iOS_CLIENT_GUIDE.md) - iOS app integration
+- [Postman Collection](docs/POSTMAN_COLLECTION.md) - API testing collection
+
+## Development
+
+### Prerequisites
+- .NET 9 SDK
+- Docker (optional)
+- SQLite
+
+### Local Development
+```bash
+# Clone repository
+git clone https://github.com/trevordavies095/audiarr.git
+cd audiarr
+
+# Restore dependencies
+dotnet restore
+
+# Run migrations
+dotnet ef database update -p src/Audiarr.Data -s src/Audiarr.Api
+
+# Run the server
+dotnet run --project src/Audiarr.Api
+
+# Access at http://localhost:5279 (development) or configured port
+```
+
+### Building Docker Image
+```bash
+docker build -t audiarr:latest .
+```
+
+## Configuration
+
+Key configuration options in `appsettings.json`:
+
+- `JwtSettings`: Token expiration and signing keys
+- `ConnectionStrings`: Database location
+- `Logging`: Log levels and output
+- Music library path: Set via `MUSIC_LIBRARY_PATH` environment variable
+
+## System Requirements
+
+- **Minimum**: 512MB RAM, 1 CPU core
+- **Recommended**: 1GB RAM, 2 CPU cores
+- **Storage**: Varies based on library size (database typically < 100MB for 10,000 tracks)
+
+## License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+## Contributing
+
+Contributions are welcome! Please read the contributing guidelines before submitting pull requests.
+
+## Support
+
+For issues, feature requests, or questions, please use the [GitHub Issues](https://github.com/yourusername/audiarr/issues) page.

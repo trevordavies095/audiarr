@@ -67,7 +67,7 @@ public static class ScannerEndpoints
         {
             var formats = new[]
             {
-                ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", 
+                ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus",
                 ".wav", ".wma", ".alac", ".ape", ".wv", ".mka"
             };
             return Results.Ok(new { formats });

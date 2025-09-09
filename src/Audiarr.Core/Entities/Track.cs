@@ -24,7 +24,7 @@ public class Track : BaseEntity
     public DateTime ModifiedDate => UpdatedAt; // Use base entity property
     public int PlayCount { get; set; }
     public DateTime? LastPlayedDate { get; set; }
-    
+
     // Navigation properties
     public virtual Album Album { get; set; } = null!;
     public virtual Artist Artist { get; set; } = null!;
