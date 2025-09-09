@@ -40,3 +40,13 @@ public record CreateUserResponse(
     string Role,
     DateTime CreatedAt
 );
+
+public record ResetPasswordRequest(
+    bool GenerateRandom = true,
+    string? ManualPassword = null
+);
+
+public record ResetPasswordResponse(
+    string NewPassword,
+    string Method // "generated" or "manual"
+);

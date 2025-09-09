@@ -182,7 +182,7 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             if (authState.User.Identity?.IsAuthenticated == true)
             {
-                var token = await LocalStorage.GetAsync<string>("authToken");
+                var token = await LocalStorage.GetAsync<string>("accessToken");
                 if (token.Success && !string.IsNullOrEmpty(token.Value))
                 {
                     Http.DefaultRequestHeaders.Authorization = 
@@ -354,7 +354,7 @@
 
         try
         {
-            var token = await LocalStorage.GetAsync<string>("authToken");
+            var token = await LocalStorage.GetAsync<string>("accessToken");
             if (!token.Success || string.IsNullOrEmpty(token.Value))
             {
                 errorMessage = "Authentication token not found. Please login again.";
@@ -374,7 +374,7 @@
                 
                 // Clear stored token and redirect to login after 2 seconds
                 await Task.Delay(2000);
-                await LocalStorage.DeleteAsync("authToken");
+                await LocalStorage.DeleteAsync("accessToken");
                 await LocalStorage.DeleteAsync("refreshToken");
                 
                 if (AuthStateProvider is BlazorAuthStateProvider blazorAuthProvider)

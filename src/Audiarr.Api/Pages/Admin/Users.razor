@@ -9,6 +9,9 @@
 @inject IUserManagementService UserService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Users - Audiarr Admin</PageTitle>
 
@@ -83,6 +86,7 @@ else
                             <span class="sort-indicator">@(sortOrder == "asc" ? "▲" : "▼")</span>
                         }
                     </th>
+                    <th class="text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -136,6 +140,18 @@ else
                             <span title="@user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")">
                                 @user.CreatedAt.ToString("yyyy-MM-dd")
                             </span>
+                        </td>
+                        <td class="text-center">
+                            @if (user.Username != currentUsername)
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => OpenResetPasswordModal(user)" title="Reset Password">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="text-muted" title="Cannot reset your own password here">-</span>
+                            }
                         </td>
                     </tr>
                 }
@@ -287,6 +303,109 @@ else
     </div>
 }
 
+@if (showResetPasswordModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Password for @resetPasswordUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseResetPasswordModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(resetPasswordError))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @resetPasswordError
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(generatedPassword))
+                    {
+                        <div class="alert alert-success" role="alert">
+                            <h6 class="alert-heading">Password Reset Successfully!</h6>
+                            <p>The new password for <strong>@resetPasswordUser?.Username</strong> is:</p>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control font-monospace" value="@generatedPassword" readonly />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="CopyPasswordToClipboard" title="Copy to clipboard">
+                                    <i class="bi bi-clipboard"></i> @(passwordCopied ? "Copied!" : "Copy")
+                                </button>
+                            </div>
+                            <hr>
+                            <p class="mb-0 small">Make sure to securely share this password with the user. They will be able to change it after logging in.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <form @onsubmit="ResetPassword" @onsubmit:preventDefault="true">
+                            <div class="mb-3">
+                                <label class="form-label">Password Reset Method</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="resetMethod" id="generateRandom" 
+                                           value="true" checked="@resetPasswordRequest.GenerateRandom" 
+                                           @onchange="() => SetPasswordResetMethod(true)" />
+                                    <label class="form-check-label" for="generateRandom">
+                                        Generate secure random password (recommended)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="resetMethod" id="manualPassword" 
+                                           value="false" checked="@(!resetPasswordRequest.GenerateRandom)" 
+                                           @onchange="() => SetPasswordResetMethod(false)" />
+                                    <label class="form-check-label" for="manualPassword">
+                                        Set manual password
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            @if (!resetPasswordRequest.GenerateRandom)
+                            {
+                                <div class="mb-3">
+                                    <label for="manualPasswordInput" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="manualPasswordInput" 
+                                           @bind="resetPasswordRequest.ManualPassword" 
+                                           placeholder="Enter new password" required />
+                                    <small class="form-text text-muted">Minimum 8 characters</small>
+                                </div>
+                            }
+                            
+                            <div class="alert alert-warning" role="alert">
+                                <i class="bi bi-exclamation-triangle"></i> This action will:
+                                <ul class="mb-0 mt-2">
+                                    <li>Immediately change the user's password</li>
+                                    <li>Log out the user from all sessions</li>
+                                    <li>Create an audit log entry</li>
+                                </ul>
+                            </div>
+                        </form>
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (string.IsNullOrEmpty(generatedPassword))
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="CloseResetPasswordModal">Cancel</button>
+                        <button type="button" class="btn btn-warning" @onclick="ResetPassword" 
+                                disabled="@(isResettingPassword || (!resetPasswordRequest.GenerateRandom && string.IsNullOrWhiteSpace(resetPasswordRequest.ManualPassword)))">
+                            @if (isResettingPassword)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span>Resetting...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-key"></i> Reset Password</span>
+                            }
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="CloseResetPasswordModal">Close</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable {
         cursor: pointer;
@@ -330,6 +449,15 @@ else
     private string emailError = "";
     private string passwordStrength = "Weak";
     private List<string> passwordValidationErrors = new();
+    
+    // Reset Password Modal
+    private bool showResetPasswordModal = false;
+    private UserListDto? resetPasswordUser = null;
+    private ResetPasswordRequest resetPasswordRequest = new();
+    private bool isResettingPassword = false;
+    private string resetPasswordError = "";
+    private string generatedPassword = "";
+    private bool passwordCopied = false;
     
     private class CreateUserModel
     {
@@ -717,5 +845,120 @@ else
 
         ValidatePassword();
         return !passwordValidationErrors.Any();
+    }
+
+    // Reset Password Methods
+    private void OpenResetPasswordModal(UserListDto user)
+    {
+        resetPasswordUser = user;
+        resetPasswordRequest = new ResetPasswordRequest();
+        generatedPassword = "";
+        resetPasswordError = "";
+        passwordCopied = false;
+        showResetPasswordModal = true;
+    }
+
+    private void CloseResetPasswordModal()
+    {
+        showResetPasswordModal = false;
+        resetPasswordUser = null;
+        generatedPassword = "";
+        resetPasswordError = "";
+        passwordCopied = false;
+        resetPasswordRequest = new ResetPasswordRequest();
+    }
+
+    private void SetPasswordResetMethod(bool generateRandom)
+    {
+        resetPasswordRequest = new ResetPasswordRequest
+        {
+            GenerateRandom = generateRandom,
+            ManualPassword = generateRandom ? null : ""
+        };
+    }
+
+    private async Task ResetPassword()
+    {
+        if (resetPasswordUser == null || isResettingPassword)
+            return;
+
+        isResettingPassword = true;
+        resetPasswordError = "";
+        StateHasChanged();
+
+        try
+        {
+            var tokenResult = await LocalStorage.GetAsync<string>("accessToken");
+            var token = tokenResult.Success ? tokenResult.Value : null;
+            if (string.IsNullOrEmpty(token))
+            {
+                resetPasswordError = "Authentication token not found";
+                return;
+            }
+
+            using var client = HttpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.PostAsJsonAsync(
+                $"http://localhost:5209/api/v2/users/{resetPasswordUser.Id}/reset-password", 
+                resetPasswordRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ResetPasswordResponse>();
+                if (result != null)
+                {
+                    generatedPassword = result.NewPassword;
+                    await LoadUsers(); // Refresh the list
+                }
+            }
+            else
+            {
+                var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+                resetPasswordError = problemDetails?.Detail ?? "Failed to reset password";
+            }
+        }
+        catch (Exception ex)
+        {
+            resetPasswordError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isResettingPassword = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyPasswordToClipboard()
+    {
+        if (!string.IsNullOrEmpty(generatedPassword))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", generatedPassword);
+            passwordCopied = true;
+            StateHasChanged();
+            
+            // Reset the "Copied!" text after 2 seconds
+            await Task.Delay(2000);
+            passwordCopied = false;
+            StateHasChanged();
+        }
+    }
+
+    private class ResetPasswordResponse
+    {
+        public string NewPassword { get; set; } = "";
+        public string Method { get; set; } = "";
+    }
+
+    private class ResetPasswordRequest  
+    {
+        public bool GenerateRandom { get; set; } = true;
+        public string? ManualPassword { get; set; }
+    }
+
+    private class ProblemDetails
+    {
+        public string? Detail { get; set; }
     }
 }

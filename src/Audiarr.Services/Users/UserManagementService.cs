@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using System.Security.Cryptography;
+using System.Text;
 using Audiarr.Core.DTOs;
 using Audiarr.Core.Entities;
 using Audiarr.Data.Context;
@@ -15,6 +17,7 @@ public interface IUserManagementService
     Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request);
     Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null);
     Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null);
+    Task<ResetPasswordResponse> ResetPasswordAsync(string targetUserId, string performedByUserId, ResetPasswordRequest request);
 }
 
 public class UserManagementService : IUserManagementService
@@ -194,5 +197,123 @@ public class UserManagementService : IUserManagementService
         }
 
         return !await query.AnyAsync();
+    }
+
+    public async Task<ResetPasswordResponse> ResetPasswordAsync(string targetUserId, string performedByUserId, ResetPasswordRequest request)
+    {
+        _logger.LogInformation("Resetting password for user {TargetUserId} by admin {AdminUserId}", targetUserId, performedByUserId);
+
+        // Check if target user exists
+        var targetUser = await _context.Users.FindAsync(targetUserId);
+        if (targetUser == null)
+        {
+            throw new InvalidOperationException($"User with ID '{targetUserId}' not found");
+        }
+
+        // Prevent admin from resetting their own password through this method
+        if (targetUserId == performedByUserId)
+        {
+            throw new InvalidOperationException("Admins cannot reset their own password through this method. Please use the password change feature.");
+        }
+
+        string newPassword;
+        string method;
+
+        if (request.GenerateRandom)
+        {
+            // Generate a secure random password
+            newPassword = GenerateSecurePassword();
+            method = "generated";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.ManualPassword))
+            {
+                throw new ArgumentException("Manual password cannot be empty when not generating a random password");
+            }
+
+            if (request.ManualPassword.Length < 8)
+            {
+                throw new ArgumentException("Password must be at least 8 characters long");
+            }
+
+            newPassword = request.ManualPassword;
+            method = "manual";
+        }
+
+        // Hash the new password
+        targetUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        targetUser.UpdatedAt = DateTime.UtcNow;
+
+        // Invalidate all existing sessions for the user
+        var userSessions = await _context.Sessions
+            .Where(s => s.UserId == targetUserId)
+            .ToListAsync();
+
+        if (userSessions.Any())
+        {
+            _context.Sessions.RemoveRange(userSessions);
+            _logger.LogInformation("Invalidated {SessionCount} sessions for user {UserId}", userSessions.Count, targetUserId);
+        }
+
+        // Create audit log entry
+        var auditLog = new AuditLog
+        {
+            Action = "PasswordReset",
+            TargetUserId = targetUserId,
+            PerformedByUserId = performedByUserId,
+            Details = $"Password reset using {method} method",
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.AuditLogs.Add(auditLog);
+
+        // Save all changes
+        await _context.SaveChangesAsync();
+
+        // Invalidate cache since user data has changed
+        InvalidateCache();
+
+        _logger.LogInformation("Successfully reset password for user {TargetUserId} using {Method} method", targetUserId, method);
+
+        return new ResetPasswordResponse(newPassword, method);
+    }
+
+    private static string GenerateSecurePassword(int length = 12)
+    {
+        const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        const string digits = "0123456789";
+        const string special = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+        const string allChars = upperCase + lowerCase + digits + special;
+
+        var password = new char[length];
+        var randomBytes = new byte[length * 4];
+        
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomBytes);
+        }
+
+        // Ensure at least one character from each category
+        password[0] = upperCase[Math.Abs(BitConverter.ToInt32(randomBytes, 0)) % upperCase.Length];
+        password[1] = lowerCase[Math.Abs(BitConverter.ToInt32(randomBytes, 4)) % lowerCase.Length];
+        password[2] = digits[Math.Abs(BitConverter.ToInt32(randomBytes, 8)) % digits.Length];
+        password[3] = special[Math.Abs(BitConverter.ToInt32(randomBytes, 12)) % special.Length];
+
+        // Fill the rest with random characters from all categories
+        for (int i = 4; i < length; i++)
+        {
+            password[i] = allChars[Math.Abs(BitConverter.ToInt32(randomBytes, i * 4) % allChars.Length)];
+        }
+
+        // Shuffle the password to avoid predictable patterns
+        for (int i = length - 1; i > 0; i--)
+        {
+            int j = Math.Abs(BitConverter.ToInt32(randomBytes, i * 4) % (i + 1));
+            (password[i], password[j]) = (password[j], password[i]);
+        }
+
+        return new string(password);
     }
 }
