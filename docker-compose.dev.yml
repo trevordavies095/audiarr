@@ -1,0 +1,39 @@
+# Development override configuration for Audiarr
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# This file overrides settings in docker-compose.yml for local development
+
+version: '3.8'
+
+services:
+  audiarr:
+    # Build from local source instead of using pre-built image
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: audiarr:dev
+    
+    # Development environment settings
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_WATCH_RESTART=true
+      # Enable detailed errors and logging
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__Microsoft=Information
+      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+    
+    # Mount local directories for development
+    volumes:
+      # Mount source code for hot reload (optional - requires different setup)
+      # - ./src:/app/src:ro
+      
+      # Use local test music directory
+      - ./test-music:/music:ro
+      
+      # Use local data directory for easy inspection
+      - ./dev-data:/data
+      
+    # Expose additional ports for debugging if needed
+    # ports:
+    #   - "8080:8080"
+    #   - "5000:5000"  # HTTP
+    #   - "5001:5001"  # HTTPS

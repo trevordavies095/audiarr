@@ -26,43 +26,11 @@ A self-hosted music streaming server built with .NET 9 that provides a comprehen
 
 ## Quick Start
 
-### Using Docker Compose
+### Using Docker (Recommended)
 
-1. Clone the repository:
-```bash
-git clone https://github.com/trevordavies095/audiarr.git
-cd audiarr
-```
+Audiarr is designed to run in Docker for consistent behavior across all environments.
 
-2. Create docker-compose.yml or use the provided one:
-```yaml
-services:
-  audiarr:
-    build: .
-    ports:
-      - "8080:8080"
-    volumes:
-      - /path/to/your/music:/music:ro
-      - audiarr_data:/data
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-    restart: unless-stopped
-
-volumes:
-  audiarr_data:
-```
-
-3. Start the server:
-```bash
-docker-compose up -d
-```
-
-4. Access the admin interface at `http://localhost:8080/admin`
-   - Default credentials: `admin` / `admin`
-
-5. Initiate a library scan from the admin panel or via API
-
-### Using Pre-built Docker Image
+#### Option 1: Using Pre-built Image
 
 ```bash
 docker run -d \
@@ -72,6 +40,35 @@ docker run -d \
   -v audiarr_data:/data \
   ghcr.io/trevordavies095/audiarr:latest
 ```
+
+#### Option 2: Using Docker Compose
+
+1. Clone the repository:
+```bash
+git clone https://github.com/trevordavies095/audiarr.git
+cd audiarr
+```
+
+2. Copy the example environment file and configure:
+```bash
+cp .env.example .env
+# Edit .env to set your music library path
+```
+
+3. Start the server:
+```bash
+# For production deployment
+docker-compose up -d
+
+# For development with local builds
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+4. Access the admin interface at `http://localhost:8080/admin`
+   - Default credentials: `admin` / `admin`
+   - **Important**: Change the admin password after first login
+
+5. Initiate a library scan from the admin panel or via API
 
 ## API Usage
 
@@ -115,41 +112,67 @@ Comprehensive documentation is available in the `/docs` directory:
 ## Development
 
 ### Prerequisites
-- .NET 9 SDK
-- Docker (optional)
-- SQLite
+- Docker and Docker Compose
+- .NET 9 SDK (only for code editing/IDE support)
 
-### Local Development
+### Development Workflow
+
+Audiarr uses a Docker-first development approach to ensure consistency between development and production environments.
+
+1. Clone the repository:
 ```bash
-# Clone repository
 git clone https://github.com/trevordavies095/audiarr.git
 cd audiarr
-
-# Restore dependencies
-dotnet restore
-
-# Run migrations
-dotnet ef database update -p src/Audiarr.Data -s src/Audiarr.Api
-
-# Run the server
-dotnet run --project src/Audiarr.Api
-
-# Access at http://localhost:5279 (development) or configured port
 ```
 
-### Building Docker Image
+2. Set up your development environment:
+```bash
+# Copy the example environment file
+cp .env.example .env
+# Edit .env to configure your settings
+```
+
+3. Start the development environment:
+```bash
+# This builds from source and enables hot reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+4. Access the application:
+   - Admin interface: `http://localhost:8080/admin`
+   - API: `http://localhost:8080/api/v2`
+
+### Building for Production
+
+Build the production Docker image:
 ```bash
 docker build -t audiarr:latest .
 ```
 
+Or use Docker Compose:
+```bash
+docker-compose build
+```
+
 ## Configuration
 
-Key configuration options in `appsettings.json`:
+Configuration is managed through environment variables and Docker volumes:
 
-- `JwtSettings`: Token expiration and signing keys
-- `ConnectionStrings`: Database location
-- `Logging`: Log levels and output
-- Music library path: Set via `MUSIC_LIBRARY_PATH` environment variable
+### Environment Variables
+- `MUSIC_PATH`: Path to your music library (required)
+- `HOST_PORT`: Port to expose Audiarr on (default: 8080)
+- `TZ`: Timezone (default: UTC)
+- `AUDIARR_TAG`: Docker image tag to use (default: latest)
+
+### Advanced Configuration
+JWT and other settings can be configured via environment variables:
+- `JWT_SECRET_KEY`: JWT signing key (auto-generated if not set)
+- `JWT_ISSUER`: Token issuer (default: AudiarrAPI)
+- `JWT_AUDIENCE`: Token audience (default: AudiarrClient)
+- `JWT_EXPIRATION_MINUTES`: Access token expiration (default: 60)
+- `JWT_REFRESH_EXPIRATION_DAYS`: Refresh token expiration (default: 7)
+
+See `.env.example` for all available options.
 
 ## System Requirements
 

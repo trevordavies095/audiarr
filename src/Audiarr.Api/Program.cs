@@ -13,13 +13,8 @@ using Audiarr.Services.Users;
 using Serilog;
 using Serilog.Events;
 
-// Configure Serilog
-var logPath = Path.Combine(
-    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" 
-        ? Path.Combine(Directory.GetCurrentDirectory(), "Logs")
-        : "/data/logs",
-    "audiarr-.log");
-
+// Configure Serilog - Docker-first approach with fixed paths
+var logPath = "/data/logs/audiarr-.log";
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
 Log.Logger = new LoggerConfiguration()
@@ -106,45 +101,8 @@ builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddSingleton<ScannerBackgroundService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
-// Configure SQLite database
-string dataPath;
-
-if (!builder.Environment.IsDevelopment())
-{
-    // Production/Docker environment - use /data volume
-    dataPath = "/data";
-}
-else
-{
-    // Development environment - find project root and use Data folder there
-    var currentDirectory = Directory.GetCurrentDirectory();
-    var projectRoot = currentDirectory;
-    
-    // Walk up the directory tree to find the solution root
-    while (!File.Exists(Path.Combine(projectRoot, "Audiarr.sln")) && projectRoot != Path.GetPathRoot(projectRoot))
-    {
-        var parent = Directory.GetParent(projectRoot);
-        if (parent == null) break;
-        projectRoot = parent.FullName;
-    }
-    
-    // If we couldn't find the solution file, use current directory
-    if (!File.Exists(Path.Combine(projectRoot, "Audiarr.sln")))
-    {
-        projectRoot = currentDirectory;
-    }
-    
-    dataPath = Path.Combine(projectRoot, "Data");
-}
-
-// Allow override via environment variable
-var envDataPath = Environment.GetEnvironmentVariable("AUDIARR_DATA_PATH");
-if (!string.IsNullOrEmpty(envDataPath))
-{
-    dataPath = envDataPath;
-    Console.WriteLine($"Using data path from environment variable: {dataPath}");
-}
-
+// Configure SQLite database - Docker-first approach with fixed paths
+var dataPath = "/data";
 Directory.CreateDirectory(dataPath);
 var connectionString = $"Data Source={Path.Combine(dataPath, "audiarr.db")}";
 Console.WriteLine($"Database location: {Path.Combine(dataPath, "audiarr.db")}");
