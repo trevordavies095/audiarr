@@ -66,3 +66,6 @@ Data/
 ## Ignore artwork directory
 artwork/
 */artwork/
+IMPLEMENTATION_PLAN_USER_LIST.md
+.claude/CLAUDE.md
+.github/workflows/docker-build.yml.bak

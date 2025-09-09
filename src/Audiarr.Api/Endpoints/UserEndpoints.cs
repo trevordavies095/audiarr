@@ -51,6 +51,15 @@ public static class UserEndpoints
             .WithDescription("Checks if an email address is unique and available for use.")
             .Produces<bool>(200);
 
+        group.MapPost("/{userId}/reset-password", ResetUserPassword)
+            .WithName("ResetUserPassword")
+            .WithSummary("Reset a user's password")
+            .WithDescription("Allows admins to reset passwords for other users. Cannot reset own password.")
+            .Produces<ResetPasswordResponse>(200)
+            .Produces<ProblemDetails>(400)
+            .Produces(401)
+            .Produces(403);
+
         return app;
     }
 
@@ -187,5 +196,41 @@ public static class UserEndpoints
     {
         var isAvailable = await userService.IsEmailUniqueAsync(email);
         return TypedResults.Ok(isAvailable);
+    }
+
+    private static async Task<Results<Ok<ResetPasswordResponse>, ProblemHttpResult>> ResetUserPassword(
+        IUserManagementService userService,
+        HttpContext httpContext,
+        string userId,
+        ResetPasswordRequest request)
+    {
+        var adminUserId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(adminUserId))
+        {
+            return TypedResults.Problem(
+                detail: "Admin user ID not found in token",
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        try
+        {
+            var result = await userService.ResetPasswordAsync(userId, adminUserId, request);
+            return TypedResults.Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+        catch (ArgumentException ex)
+        {
+            return TypedResults.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
     }
 }
