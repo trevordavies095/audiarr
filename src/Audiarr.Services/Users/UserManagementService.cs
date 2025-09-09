@@ -250,6 +250,9 @@ public class UserManagementService : IUserManagementService
         // Hash the new password
         targetUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         targetUser.UpdatedAt = DateTime.UtcNow;
+        
+        // Ensure the user entity is marked as modified so the password change is saved
+        _context.Users.Update(targetUser);
 
         // Invalidate all existing sessions for the user
         var userSessions = await _context.Sessions
