@@ -10,10 +10,10 @@ public class Session : BaseEntity
     public string? UserAgent { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
-    
+
     // Navigation properties
     public virtual User User { get; set; } = null!;
-    
+
     public bool IsExpired => DateTime.UtcNow > ExpiresAt;
     public bool IsRevoked => RevokedAt.HasValue;
     public bool IsActive => !IsExpired && !IsRevoked;
