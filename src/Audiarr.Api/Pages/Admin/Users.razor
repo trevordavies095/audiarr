@@ -896,12 +896,12 @@ else
                 return;
             }
 
-            using var client = HttpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = 
+            // Use the injected HttpClient which already has the correct base URL
+            Http.DefaultRequestHeaders.Authorization = 
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            var response = await client.PostAsJsonAsync(
-                $"http://localhost:5209/api/v2/users/{resetPasswordUser.Id}/reset-password", 
+            var response = await Http.PostAsJsonAsync(
+                $"/api/v2/users/{resetPasswordUser.Id}/reset-password", 
                 resetPasswordRequest);
 
             if (response.IsSuccessStatusCode)
