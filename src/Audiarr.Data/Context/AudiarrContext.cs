@@ -9,18 +9,6 @@ public class AudiarrContext : DbContext
     {
     }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (!optionsBuilder.IsConfigured)
-        {
-            return;
-        }
-
-        // Enable WAL mode for better concurrent access
-        optionsBuilder.UseSqlite(b => b.CommandTimeout(30));
-    }
-
-
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Artist> Artists { get; set; } = null!;
     public DbSet<Album> Albums { get; set; } = null!;
