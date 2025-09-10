@@ -12,4 +12,9 @@ public interface IQueueService
     Task<QueueStateDto> ReorderQueueAsync(string userId, ReorderQueueRequest request);
     Task<QueueStateDto> ReplaceQueueAsync(string userId, ReplaceQueueRequest request);
     Task<QueueStateDto> UpdateQueueSettingsAsync(string userId, UpdateQueueRequest request);
+    
+    // Playback control methods
+    Task<QueueStateDto> NextTrackAsync(string userId);
+    Task<QueueStateDto> PreviousTrackAsync(string userId);
+    Task<QueueStateDto> JumpToPositionAsync(string userId, int index);
 }
