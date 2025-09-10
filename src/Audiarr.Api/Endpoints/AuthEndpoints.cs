@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Audiarr.Data.Context;
 using Audiarr.Core.DTOs;
@@ -17,7 +18,7 @@ public static class AuthEndpoints
 
         // Login endpoint
         group.MapPost("/login", async (
-            LoginRequest request,
+            [FromBody] LoginRequest request,
             IAuthService authService,
             HttpContext httpContext) =>
         {
@@ -45,7 +46,7 @@ public static class AuthEndpoints
 
         // Refresh token endpoint
         group.MapPost("/refresh", async (
-            RefreshTokenRequest request,
+            [FromBody] RefreshTokenRequest request,
             IAuthService authService) =>
         {
             var result = await authService.RefreshTokenAsync(request.RefreshToken);
