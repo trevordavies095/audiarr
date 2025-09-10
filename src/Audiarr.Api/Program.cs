@@ -268,6 +268,7 @@ app.MapScannerEndpoints();
 app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
 app.MapTrackEndpoints();
+app.MapPlaylistEndpoints();
 app.MapSearchEndpoints();
 app.MapStreamEndpoints();
 app.MapDiagnosticEndpoints();
@@ -289,3 +290,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// Make Program accessible for testing
+public partial class Program { }
