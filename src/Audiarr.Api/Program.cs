@@ -10,6 +10,8 @@ using Audiarr.Services.Library;
 using Audiarr.Services.Background;
 using Audiarr.Core.Interfaces;
 using Audiarr.Services.Users;
+using Audiarr.Core.Services;
+using Audiarr.Services;
 using Serilog;
 using Serilog.Events;
 using Audiarr.Core.Entities;
@@ -100,6 +102,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILibraryScanner, LibraryScanner>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddSingleton<ScannerBackgroundService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
@@ -269,6 +272,7 @@ app.MapArtistEndpoints();
 app.MapAlbumEndpoints();
 app.MapTrackEndpoints();
 app.MapPlaylistEndpoints();
+app.MapQueueEndpoints();
 app.MapSearchEndpoints();
 app.MapStreamEndpoints();
 app.MapDiagnosticEndpoints();
