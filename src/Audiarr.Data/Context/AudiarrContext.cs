@@ -27,6 +27,7 @@ public class AudiarrContext : DbContext
     public DbSet<Track> Tracks { get; set; } = null!;
     public DbSet<Playlist> Playlists { get; set; } = null!;
     public DbSet<PlaylistTrack> PlaylistTracks { get; set; } = null!;
+    public DbSet<PlaybackQueue> PlaybackQueues { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
@@ -151,6 +152,52 @@ public class AudiarrContext : DbContext
                 .WithMany(t => t.PlaylistTracks)
                 .HasForeignKey(e => e.TrackId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure PlaybackQueue entity
+        modelBuilder.Entity<PlaybackQueue>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            // Ensure one queue per user
+            entity.HasIndex(e => e.UserId).IsUnique();
+            
+            // Indexes for performance
+            entity.HasIndex(e => e.LastActivity);
+            entity.HasIndex(e => e.CurrentTrackId);
+            
+            // Property configurations
+            entity.Property(e => e.QueueStateJson)
+                .IsRequired()
+                .HasDefaultValue("{}")
+                .HasColumnType("TEXT");
+            
+            entity.Property(e => e.RepeatMode)
+                .HasConversion<int>()
+                .HasDefaultValue(RepeatMode.None);
+            
+            entity.Property(e => e.IsShuffled)
+                .HasDefaultValue(false);
+            
+            entity.Property(e => e.CurrentIndex)
+                .HasDefaultValue(0);
+            
+            entity.Property(e => e.Version)
+                .HasDefaultValue(1);
+            
+            // Ignore the non-mapped QueueState property
+            entity.Ignore(e => e.QueueState);
+            
+            // Relationships
+            entity.HasOne(e => e.User)
+                .WithOne()
+                .HasForeignKey<PlaybackQueue>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(e => e.CurrentTrack)
+                .WithMany()
+                .HasForeignKey(e => e.CurrentTrackId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Configure Session entity
