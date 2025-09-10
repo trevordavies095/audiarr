@@ -186,7 +186,7 @@ else
         public string RawLine { get; set; } = "";
     }
     
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         LoadLogFiles();
         
@@ -202,6 +202,8 @@ else
                 });
             }
         }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        
+        return Task.CompletedTask;
     }
     
     private void LoadLogFiles()

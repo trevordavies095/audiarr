@@ -26,7 +26,7 @@ public static class SearchEndpoints
             // Search artists
             var artists = await db.Artists
                 .Where(a => a.Name.ToLower().Contains(searchTerm) ||
-                           a.NameNormalized.Contains(searchTerm))
+                           (a.NameNormalized != null && a.NameNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Name.Length) // Prioritize shorter, more exact matches
                 .ThenBy(a => a.Name)
                 .Take(maxResults)
@@ -44,7 +44,7 @@ public static class SearchEndpoints
             var albums = await db.Albums
                 .Include(a => a.Artist)
                 .Where(a => a.Title.ToLower().Contains(searchTerm) ||
-                           a.TitleNormalized.Contains(searchTerm))
+                           (a.TitleNormalized != null && a.TitleNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Title.Length)
                 .ThenBy(a => a.Title)
                 .Take(maxResults)

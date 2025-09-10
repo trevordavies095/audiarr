@@ -378,7 +378,7 @@ public class LibraryScanner : ILibraryScanner
         }
     }
 
-    private async Task<string?> SaveCoverArtFromFileAsync(string sourceFilePath, string albumId)
+    private Task<string?> SaveCoverArtFromFileAsync(string sourceFilePath, string albumId)
     {
         try
         {
@@ -393,12 +393,12 @@ public class LibraryScanner : ILibraryScanner
             File.Copy(sourceFilePath, destPath, overwrite: true);
             _logger.LogDebug("Saved folder cover art for album: {AlbumId} from {Source}", albumId, sourceFilePath);
 
-            return $"/artwork/{fileName}";
+            return Task.FromResult<string?>($"/artwork/{fileName}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error saving folder cover art for album: {AlbumId}", albumId);
-            return null;
+            return Task.FromResult<string?>(null);
         }
     }
 
