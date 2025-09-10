@@ -684,6 +684,397 @@ public class QueueServiceTests : IDisposable
 
     #endregion
 
+    #region NextTrackAsync Tests
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Move_To_Next_Track()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+
+        // Act
+        var result = await _queueService.NextTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(1, result.CurrentIndex);
+        Assert.Equal("track-2", result.CurrentTrackId);
+        Assert.Equal(4, result.TotalTracks);
+    }
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Loop_To_First_When_RepeatAll_At_End()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set to last track and enable repeat all
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 2,
+            RepeatMode = RepeatMode.All 
+        });
+
+        // Act
+        var result = await _queueService.NextTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(0, result.CurrentIndex);
+        Assert.Equal("track-1", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.All, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Stay_On_Last_When_RepeatNone_At_End()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set to last track with RepeatMode.None
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 2,
+            RepeatMode = RepeatMode.None 
+        });
+
+        // Act
+        var result = await _queueService.NextTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(2, result.CurrentIndex); // Stays on last
+        Assert.Equal("track-3", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.None, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Stay_On_Current_When_RepeatOne()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set repeat one mode
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 1,
+            RepeatMode = RepeatMode.One 
+        });
+
+        // Act
+        var result = await _queueService.NextTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(1, result.CurrentIndex); // Stays on current
+        Assert.Equal("track-2", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.One, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Throw_When_Queue_Empty()
+    {
+        // Arrange - just create empty queue
+        await _queueService.GetQueueAsync(_testUserId);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _queueService.NextTrackAsync(_testUserId));
+        Assert.Equal("Queue is empty", exception.Message);
+    }
+
+    [Fact]
+    public async Task NextTrackAsync_Should_Update_Version_And_LastActivity()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2" }
+        };
+        var initialQueue = await _queueService.AddTracksAsync(_testUserId, addRequest);
+        var initialVersion = initialQueue.Version;
+        var initialActivity = initialQueue.LastActivity;
+
+        // Wait a bit to ensure LastActivity changes
+        await Task.Delay(10);
+
+        // Act
+        var result = await _queueService.NextTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(initialVersion + 1, result.Version);
+        Assert.True(result.LastActivity > initialActivity);
+    }
+
+    #endregion
+
+    #region PreviousTrackAsync Tests
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Move_To_Previous_Track()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set to track 3 (index 2)
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 2 });
+
+        // Act
+        var result = await _queueService.PreviousTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(1, result.CurrentIndex);
+        Assert.Equal("track-2", result.CurrentTrackId);
+    }
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Loop_To_Last_When_RepeatAll_At_Start()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set to first track with repeat all
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 0,
+            RepeatMode = RepeatMode.All 
+        });
+
+        // Act
+        var result = await _queueService.PreviousTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(2, result.CurrentIndex);
+        Assert.Equal("track-3", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.All, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Stay_On_First_When_RepeatNone_At_Start()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Already at first with RepeatMode.None (default)
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 0,
+            RepeatMode = RepeatMode.None 
+        });
+
+        // Act
+        var result = await _queueService.PreviousTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(0, result.CurrentIndex); // Stays on first
+        Assert.Equal("track-1", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.None, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Stay_On_Current_When_RepeatOne()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        
+        // Set repeat one mode
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
+        { 
+            CurrentIndex = 1,
+            RepeatMode = RepeatMode.One 
+        });
+
+        // Act
+        var result = await _queueService.PreviousTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(1, result.CurrentIndex); // Stays on current
+        Assert.Equal("track-2", result.CurrentTrackId);
+        Assert.Equal(RepeatMode.One, result.RepeatMode);
+    }
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Throw_When_Queue_Empty()
+    {
+        // Arrange - just create empty queue
+        await _queueService.GetQueueAsync(_testUserId);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _queueService.PreviousTrackAsync(_testUserId));
+        Assert.Equal("Queue is empty", exception.Message);
+    }
+
+    [Fact]
+    public async Task PreviousTrackAsync_Should_Update_Version_And_LastActivity()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 2 });
+        
+        var queueBefore = await _queueService.GetQueueAsync(_testUserId);
+        var initialVersion = queueBefore.Version;
+        var initialActivity = queueBefore.LastActivity;
+
+        // Wait a bit to ensure LastActivity changes
+        await Task.Delay(10);
+
+        // Act
+        var result = await _queueService.PreviousTrackAsync(_testUserId);
+
+        // Assert
+        Assert.Equal(initialVersion + 1, result.Version);
+        Assert.True(result.LastActivity > initialActivity);
+    }
+
+    #endregion
+
+    #region JumpToPositionAsync Tests
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Jump_To_Valid_Position()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4", "track-5" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+
+        // Act
+        var result = await _queueService.JumpToPositionAsync(_testUserId, 3);
+
+        // Assert
+        Assert.Equal(3, result.CurrentIndex);
+        Assert.Equal("track-4", result.CurrentTrackId);
+    }
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Throw_When_Index_Negative()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _queueService.JumpToPositionAsync(_testUserId, -1));
+        Assert.Contains("Index -1 is out of range", exception.Message);
+    }
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Throw_When_Index_Too_Large()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _queueService.JumpToPositionAsync(_testUserId, 5));
+        Assert.Contains("Index 5 is out of range", exception.Message);
+        Assert.Contains("Queue has 3 tracks", exception.Message);
+    }
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Throw_When_Queue_Empty()
+    {
+        // Arrange - just create empty queue
+        await _queueService.GetQueueAsync(_testUserId);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _queueService.JumpToPositionAsync(_testUserId, 0));
+        Assert.Equal("Queue is empty", exception.Message);
+    }
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Update_CurrentTrack_And_Index()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
+        };
+        await _queueService.AddTracksAsync(_testUserId, addRequest);
+
+        // Jump to different positions
+        var result1 = await _queueService.JumpToPositionAsync(_testUserId, 2);
+        Assert.Equal(2, result1.CurrentIndex);
+        Assert.Equal("track-3", result1.CurrentTrackId);
+
+        var result2 = await _queueService.JumpToPositionAsync(_testUserId, 0);
+        Assert.Equal(0, result2.CurrentIndex);
+        Assert.Equal("track-1", result2.CurrentTrackId);
+
+        var result3 = await _queueService.JumpToPositionAsync(_testUserId, 3);
+        Assert.Equal(3, result3.CurrentIndex);
+        Assert.Equal("track-4", result3.CurrentTrackId);
+    }
+
+    [Fact]
+    public async Task JumpToPositionAsync_Should_Update_Version_And_LastActivity()
+    {
+        // Arrange
+        var addRequest = new AddToQueueRequest
+        {
+            TrackIds = new List<string> { "track-1", "track-2", "track-3" }
+        };
+        var initialQueue = await _queueService.AddTracksAsync(_testUserId, addRequest);
+        var initialVersion = initialQueue.Version;
+        var initialActivity = initialQueue.LastActivity;
+
+        // Wait a bit to ensure LastActivity changes
+        await Task.Delay(10);
+
+        // Act
+        var result = await _queueService.JumpToPositionAsync(_testUserId, 2);
+
+        // Assert
+        Assert.Equal(initialVersion + 1, result.Version);
+        Assert.True(result.LastActivity > initialActivity);
+    }
+
+    #endregion
+
     public void Dispose()
     {
         _context?.Dispose();
