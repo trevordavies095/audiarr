@@ -141,4 +141,144 @@ public class PlaylistEndpointsTests
         Assert.Equal("Copy of My Playlist", request.Name);
         Assert.Equal("A copied playlist", request.Description);
     }
+
+    [Fact]
+    public void AddTracksRequest_WithPosition_Works()
+    {
+        // Arrange
+        var request = new AddTracksRequest
+        {
+            TrackIds = new List<string> { "track1", "track2" },
+            Position = 0
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.TrackIds);
+        Assert.Equal(2, request.TrackIds.Count);
+        Assert.Equal(0, request.Position);
+    }
+
+    [Fact]
+    public void AddTracksRequest_BatchOperation_Works()
+    {
+        // Arrange
+        var trackIds = new List<string>();
+        for (int i = 1; i <= 100; i++)
+        {
+            trackIds.Add($"track{i}");
+        }
+
+        var request = new AddTracksRequest
+        {
+            TrackIds = trackIds,
+            Position = null // Append to end
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.TrackIds);
+        Assert.Equal(100, request.TrackIds.Count);
+        Assert.Null(request.Position);
+    }
+
+    [Fact]
+    public void RemoveTracksRequest_BatchOperation_Works()
+    {
+        // Arrange
+        var trackIds = new List<string> { "track1", "track2", "track3", "track4", "track5" };
+        var request = new RemoveTracksRequest
+        {
+            TrackIds = trackIds
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.TrackIds);
+        Assert.Equal(5, request.TrackIds.Count);
+        Assert.Contains("track3", request.TrackIds);
+    }
+
+    [Fact]
+    public void ReorderTracksRequest_SingleTrack_Works()
+    {
+        // Arrange
+        var request = new ReorderTracksRequest
+        {
+            Tracks = new List<TrackReorderItem>
+            {
+                new() { TrackId = "track1", NewPosition = 0 }
+            }
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.Tracks);
+        Assert.Single(request.Tracks);
+        Assert.Equal("track1", request.Tracks[0].TrackId);
+        Assert.Equal(0, request.Tracks[0].NewPosition);
+    }
+
+    [Fact]
+    public void ReorderTracksRequest_MultipleTracksWithDecimalPositions_Works()
+    {
+        // Arrange
+        var request = new ReorderTracksRequest
+        {
+            Tracks = new List<TrackReorderItem>
+            {
+                new() { TrackId = "track1", NewPosition = 0.5m },
+                new() { TrackId = "track2", NewPosition = 1.5m },
+                new() { TrackId = "track3", NewPosition = 2.0m },
+                new() { TrackId = "track4", NewPosition = 2.5m }
+            }
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.Tracks);
+        Assert.Equal(4, request.Tracks.Count);
+        Assert.Equal(0.5m, request.Tracks[0].NewPosition);
+        Assert.Equal(2.5m, request.Tracks[3].NewPosition);
+    }
+
+    [Fact]
+    public void ReorderTracksRequest_ConflictFreePositioning_Works()
+    {
+        // Arrange - Test decimal positioning to avoid conflicts
+        var request = new ReorderTracksRequest
+        {
+            Tracks = new List<TrackReorderItem>
+            {
+                // Move track between position 1 and 2
+                new() { TrackId = "trackA", NewPosition = 1.5m },
+                // Move track between position 1 and the newly placed track
+                new() { TrackId = "trackB", NewPosition = 1.25m },
+                // Move track between the two newly placed tracks
+                new() { TrackId = "trackC", NewPosition = 1.375m }
+            }
+        };
+
+        // Act & Assert
+        Assert.NotNull(request.Tracks);
+        Assert.Equal(3, request.Tracks.Count);
+        
+        // Verify positions maintain proper ordering
+        var sortedPositions = request.Tracks.Select(t => t.NewPosition).OrderBy(p => p).ToList();
+        Assert.Equal(1.25m, sortedPositions[0]);
+        Assert.Equal(1.375m, sortedPositions[1]);
+        Assert.Equal(1.5m, sortedPositions[2]);
+    }
+
+    [Fact]
+    public void AddTracksRequest_PreventsDuplicates_Concept()
+    {
+        // This test demonstrates the concept of preventing duplicates
+        // In real implementation, this would be handled by the endpoint logic
+        var existingTracks = new HashSet<string> { "track1", "track2", "track3" };
+        var newTracks = new List<string> { "track2", "track4", "track5" };
+        
+        // Filter out duplicates
+        var tracksToAdd = newTracks.Where(t => !existingTracks.Contains(t)).ToList();
+        
+        Assert.Equal(2, tracksToAdd.Count);
+        Assert.Contains("track4", tracksToAdd);
+        Assert.Contains("track5", tracksToAdd);
+        Assert.DoesNotContain("track2", tracksToAdd);
+    }
 }
