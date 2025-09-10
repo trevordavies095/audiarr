@@ -377,5 +377,283 @@ public static class PlaylistEndpoints
         .WithOpenApi()
         .WithSummary("Get public playlists")
         .WithDescription("Returns a paginated list of all public playlists");
+
+        // POST /api/v2/playlists/{id}/tracks - Add tracks to playlist
+        group.MapPost("/{id}/tracks", async (
+            string id,
+            AddTracksRequest request,
+            ClaimsPrincipal user,
+            AudiarrContext db) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var username = user.FindFirst(ClaimTypes.Name)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var playlist = await db.Playlists
+                .Include(p => p.PlaylistTracks)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (playlist == null)
+                return Results.NotFound(new { error = "Playlist not found" });
+
+            // Check authorization - user can only modify their own playlists
+            if (playlist.UserId != userId)
+                return Results.Forbid();
+
+            // Verify tracks exist
+            var tracks = await db.Tracks
+                .Where(t => request.TrackIds.Contains(t.Id))
+                .ToListAsync();
+
+            if (!tracks.Any())
+                return Results.BadRequest(new { error = "No valid tracks found" });
+
+            // Get existing track IDs to prevent duplicates
+            var existingTrackIds = playlist.PlaylistTracks.Select(pt => pt.TrackId).ToHashSet();
+
+            // Determine starting position
+            decimal startPosition;
+            if (request.Position.HasValue && request.Position.Value >= 0)
+            {
+                // Insert at specific position
+                if (request.Position.Value == 0)
+                {
+                    // Insert at beginning
+                    var firstTrack = playlist.PlaylistTracks.OrderBy(pt => pt.PositionFloat).FirstOrDefault();
+                    startPosition = firstTrack != null ? firstTrack.PositionFloat - 1 : 0;
+                }
+                else
+                {
+                    // Insert after specified position
+                    var tracksOrdered = playlist.PlaylistTracks.OrderBy(pt => pt.PositionFloat).ToList();
+                    if (request.Position.Value >= tracksOrdered.Count)
+                    {
+                        // Append to end
+                        var lastTrack = tracksOrdered.LastOrDefault();
+                        startPosition = lastTrack != null ? lastTrack.PositionFloat + 1 : 0;
+                    }
+                    else
+                    {
+                        // Insert between tracks
+                        var prevTrack = tracksOrdered[request.Position.Value - 1];
+                        var nextTrack = tracksOrdered[request.Position.Value];
+                        startPosition = (prevTrack.PositionFloat + nextTrack.PositionFloat) / 2;
+                    }
+                }
+            }
+            else
+            {
+                // Append to end by default
+                var lastTrack = playlist.PlaylistTracks.OrderByDescending(pt => pt.PositionFloat).FirstOrDefault();
+                startPosition = lastTrack != null ? lastTrack.PositionFloat + 1 : 0;
+            }
+
+            // Add new tracks
+            var addedCount = 0;
+            var totalDurationMs = 0;
+            foreach (var trackId in request.TrackIds)
+            {
+                if (!existingTrackIds.Contains(trackId) && tracks.Any(t => t.Id == trackId))
+                {
+                    var track = tracks.First(t => t.Id == trackId);
+                    var playlistTrack = new PlaylistTrack
+                    {
+                        PlaylistId = playlist.Id,
+                        TrackId = trackId,
+                        Position = 0, // Will be recalculated
+                        PositionFloat = startPosition + addedCount,
+                        AddedAt = DateTime.UtcNow,
+                        AddedBy = username
+                    };
+                    db.PlaylistTracks.Add(playlistTrack);
+                    totalDurationMs += track.DurationMs;
+                    addedCount++;
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                // Update playlist metadata
+                playlist.TrackCount += addedCount;
+                playlist.LastModified = DateTime.UtcNow;
+                playlist.UpdatedAt = DateTime.UtcNow;
+
+                // Update total duration
+                if (totalDurationMs > 0)
+                {
+                    var currentDuration = playlist.TotalDuration?.TotalMilliseconds ?? 0;
+                    playlist.TotalDuration = TimeSpan.FromMilliseconds(currentDuration + totalDurationMs);
+                }
+
+                // Recalculate integer positions
+                var allTracks = await db.PlaylistTracks
+                    .Where(pt => pt.PlaylistId == id)
+                    .OrderBy(pt => pt.PositionFloat)
+                    .ToListAsync();
+
+                for (int i = 0; i < allTracks.Count; i++)
+                {
+                    allTracks[i].Position = i;
+                }
+
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(new
+            {
+                message = $"Added {addedCount} track(s) to playlist",
+                addedCount,
+                totalTracks = playlist.TrackCount
+            });
+        })
+        .WithName("AddTracksToPlaylist")
+        .WithOpenApi()
+        .WithSummary("Add tracks to playlist")
+        .WithDescription("Adds one or more tracks to a playlist at the specified position");
+
+        // DELETE /api/v2/playlists/{id}/tracks - Remove tracks from playlist
+        group.MapDelete("/{id}/tracks", async (
+            string id,
+            RemoveTracksRequest request,
+            ClaimsPrincipal user,
+            AudiarrContext db) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var playlist = await db.Playlists
+                .Include(p => p.PlaylistTracks)
+                    .ThenInclude(pt => pt.Track)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (playlist == null)
+                return Results.NotFound(new { error = "Playlist not found" });
+
+            // Check authorization - user can only modify their own playlists
+            if (playlist.UserId != userId)
+                return Results.Forbid();
+
+            // Find tracks to remove
+            var tracksToRemove = playlist.PlaylistTracks
+                .Where(pt => request.TrackIds.Contains(pt.TrackId))
+                .ToList();
+
+            if (!tracksToRemove.Any())
+                return Results.BadRequest(new { error = "No matching tracks found in playlist" });
+
+            // Calculate total duration to subtract
+            var totalDurationMs = tracksToRemove.Sum(pt => pt.Track.DurationMs);
+
+            // Remove tracks
+            db.PlaylistTracks.RemoveRange(tracksToRemove);
+
+            // Update playlist metadata
+            playlist.TrackCount -= tracksToRemove.Count;
+            playlist.LastModified = DateTime.UtcNow;
+            playlist.UpdatedAt = DateTime.UtcNow;
+
+            // Update total duration
+            if (totalDurationMs > 0 && playlist.TotalDuration.HasValue)
+            {
+                var newDurationMs = Math.Max(0, playlist.TotalDuration.Value.TotalMilliseconds - totalDurationMs);
+                playlist.TotalDuration = newDurationMs > 0 ? TimeSpan.FromMilliseconds(newDurationMs) : null;
+            }
+
+            // Recalculate positions for remaining tracks
+            var remainingTracks = playlist.PlaylistTracks
+                .Except(tracksToRemove)
+                .OrderBy(pt => pt.PositionFloat)
+                .ToList();
+
+            for (int i = 0; i < remainingTracks.Count; i++)
+            {
+                remainingTracks[i].Position = i;
+                remainingTracks[i].PositionFloat = i;
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                message = $"Removed {tracksToRemove.Count} track(s) from playlist",
+                removedCount = tracksToRemove.Count,
+                remainingTracks = playlist.TrackCount
+            });
+        })
+        .WithName("RemoveTracksFromPlaylist")
+        .WithOpenApi()
+        .WithSummary("Remove tracks from playlist")
+        .WithDescription("Removes one or more tracks from a playlist");
+
+        // PUT /api/v2/playlists/{id}/tracks/reorder - Reorder tracks in playlist
+        group.MapPut("/{id}/tracks/reorder", async (
+            string id,
+            ReorderTracksRequest request,
+            ClaimsPrincipal user,
+            AudiarrContext db) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var playlist = await db.Playlists
+                .Include(p => p.PlaylistTracks)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (playlist == null)
+                return Results.NotFound(new { error = "Playlist not found" });
+
+            // Check authorization - user can only modify their own playlists
+            if (playlist.UserId != userId)
+                return Results.Forbid();
+
+            // Validate all track IDs exist in the playlist
+            var playlistTrackIds = playlist.PlaylistTracks.Select(pt => pt.TrackId).ToHashSet();
+            var requestTrackIds = request.Tracks.Select(t => t.TrackId).ToHashSet();
+
+            if (!requestTrackIds.IsSubsetOf(playlistTrackIds))
+                return Results.BadRequest(new { error = "One or more tracks not found in playlist" });
+
+            // Update positions for specified tracks
+            var tracksToUpdate = playlist.PlaylistTracks
+                .Where(pt => requestTrackIds.Contains(pt.TrackId))
+                .ToDictionary(pt => pt.TrackId);
+
+            foreach (var reorderItem in request.Tracks)
+            {
+                if (tracksToUpdate.TryGetValue(reorderItem.TrackId, out var track))
+                {
+                    track.PositionFloat = reorderItem.NewPosition;
+                }
+            }
+
+            // Recalculate integer positions based on new float positions
+            var allTracksOrdered = playlist.PlaylistTracks
+                .OrderBy(pt => pt.PositionFloat)
+                .ToList();
+
+            for (int i = 0; i < allTracksOrdered.Count; i++)
+            {
+                allTracksOrdered[i].Position = i;
+            }
+
+            // Update playlist metadata
+            playlist.LastModified = DateTime.UtcNow;
+            playlist.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                message = "Playlist tracks reordered successfully",
+                reorderedCount = request.Tracks.Count
+            });
+        })
+        .WithName("ReorderPlaylistTracks")
+        .WithOpenApi()
+        .WithSummary("Reorder tracks in playlist")
+        .WithDescription("Reorders tracks within a playlist using decimal positioning for conflict-free updates");
     }
 }
