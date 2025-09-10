@@ -714,12 +714,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set to last track and enable repeat all
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 2,
-            RepeatMode = RepeatMode.All 
+            RepeatMode = RepeatMode.All
         });
 
         // Act
@@ -740,12 +740,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set to last track with RepeatMode.None
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 2,
-            RepeatMode = RepeatMode.None 
+            RepeatMode = RepeatMode.None
         });
 
         // Act
@@ -766,12 +766,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set repeat one mode
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 1,
-            RepeatMode = RepeatMode.One 
+            RepeatMode = RepeatMode.One
         });
 
         // Act
@@ -831,7 +831,7 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set to track 3 (index 2)
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 2 });
 
@@ -852,12 +852,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set to first track with repeat all
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 0,
-            RepeatMode = RepeatMode.All 
+            RepeatMode = RepeatMode.All
         });
 
         // Act
@@ -878,12 +878,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Already at first with RepeatMode.None (default)
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 0,
-            RepeatMode = RepeatMode.None 
+            RepeatMode = RepeatMode.None
         });
 
         // Act
@@ -904,12 +904,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set repeat one mode
-        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest 
-        { 
+        await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest
+        {
             CurrentIndex = 1,
-            RepeatMode = RepeatMode.One 
+            RepeatMode = RepeatMode.One
         });
 
         // Act
@@ -943,7 +943,7 @@ public class QueueServiceTests : IDisposable
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 2 });
-        
+
         var queueBefore = await _queueService.GetQueueAsync(_testUserId);
         var initialVersion = queueBefore.Version;
         var initialActivity = queueBefore.LastActivity;

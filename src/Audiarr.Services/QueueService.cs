@@ -406,7 +406,7 @@ public class QueueService : IQueueService
         else
         {
             nextIndex = currentIndex + 1;
-            
+
             // Handle edge cases at end of queue
             if (nextIndex >= trackCount)
             {
@@ -462,7 +462,7 @@ public class QueueService : IQueueService
         else
         {
             previousIndex = currentIndex - 1;
-            
+
             // Handle edge cases at start of queue
             if (previousIndex < 0)
             {
