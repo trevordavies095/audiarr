@@ -7,7 +7,7 @@ namespace Audiarr.Tests.Endpoints;
 public class QueuePlaybackEndpointsTests
 {
     // Test Queue Request DTOs validation
-    
+
     [Fact]
     public void AddToQueueRequest_Validation_Works()
     {
