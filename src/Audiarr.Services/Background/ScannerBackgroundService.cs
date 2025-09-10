@@ -54,7 +54,7 @@ public class ScannerBackgroundService : BackgroundService
                 using var scope = _serviceProvider.CreateScope();
                 var scanner = scope.ServiceProvider.GetRequiredService<ILibraryScanner>();
 
-                var progress = new Progress<ScanProgress>(async p =>
+                var progress = new Progress<ScanProgress>(p =>
                 {
                     _logger.LogDebug("Scan progress: {Percent:F1}% ({Current}/{Total})",
                         p.PercentComplete, p.ProcessedFiles, p.TotalFiles);

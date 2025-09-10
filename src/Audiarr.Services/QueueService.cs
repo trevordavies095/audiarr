@@ -44,6 +44,9 @@ public class QueueService : IQueueService
 
         var queueState = queue.QueueState;
         
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
+        
         if (request.PlayNext && queue.CurrentIndex >= 0 && queue.CurrentIndex < queueState.TrackIds.Count)
         {
             // Insert after current track
@@ -92,6 +95,9 @@ public class QueueService : IQueueService
     {
         var queue = await GetOrCreateQueueAsync(userId);
         var queueState = queue.QueueState;
+        
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
         
         if (index < 0 || index >= queueState.TrackIds.Count)
         {
@@ -167,6 +173,9 @@ public class QueueService : IQueueService
     {
         var queue = await GetOrCreateQueueAsync(userId);
         var queueState = queue.QueueState;
+        
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
         
         // Find current position of the track
         var currentIndex = queueState.TrackIds.IndexOf(request.TrackId);
@@ -276,7 +285,7 @@ public class QueueService : IQueueService
                 {
                     // Enable shuffle
                     var queueState = queue.QueueState;
-                    if (queueState.TrackIds.Any())
+                    if (queueState.TrackIds?.Any() == true)
                     {
                         // Store original order
                         queueState.OriginalTrackIds = new List<string>(queueState.TrackIds);
@@ -327,6 +336,7 @@ public class QueueService : IQueueService
         if (request.CurrentIndex.HasValue)
         {
             var queueState = queue.QueueState;
+            queueState.TrackIds ??= new List<string>();
             if (request.CurrentIndex.Value >= 0 && request.CurrentIndex.Value < queueState.TrackIds.Count)
             {
                 queue.CurrentIndex = request.CurrentIndex.Value;
@@ -379,12 +389,12 @@ public class QueueService : IQueueService
         {
             QueueId = queue.Id,
             UserId = queue.UserId,
-            TrackIds = queueState.TrackIds,
+            TrackIds = queueState.TrackIds ?? new List<string>(),
             CurrentTrackId = queue.CurrentTrackId,
             CurrentIndex = queue.CurrentIndex,
             RepeatMode = queue.RepeatMode,
             IsShuffled = queue.IsShuffled,
-            TotalTracks = queueState.TrackIds.Count,
+            TotalTracks = queueState.TrackIds?.Count ?? 0,
             QueueSource = source,
             LastActivity = queue.LastActivity,
             Version = queue.Version

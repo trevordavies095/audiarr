@@ -260,7 +260,7 @@
         debounceTimer.AutoReset = false;
     }
 
-    private async Task HandleKeyUp(KeyboardEventArgs e)
+    private Task HandleKeyUp(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
         {
@@ -275,6 +275,7 @@
             debounceTimer?.Stop();
             debounceTimer?.Start();
         }
+        return Task.CompletedTask;
     }
 
     private async Task PerformSearch()
@@ -300,7 +301,7 @@
             // Search artists
             artistResults = await DbContext.Artists
                 .Where(a => a.Name.ToLower().Contains(searchTerm) || 
-                           a.NameNormalized.Contains(searchTerm))
+                           (a.NameNormalized != null && a.NameNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Name.Length)
                 .ThenBy(a => a.Name)
                 .Take(limit)
@@ -317,7 +318,7 @@
             albumResults = await DbContext.Albums
                 .Include(a => a.Artist)
                 .Where(a => a.Title.ToLower().Contains(searchTerm) || 
-                           a.TitleNormalized.Contains(searchTerm))
+                           (a.TitleNormalized != null && a.TitleNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Title.Length)
                 .ThenBy(a => a.Title)
                 .Take(limit)

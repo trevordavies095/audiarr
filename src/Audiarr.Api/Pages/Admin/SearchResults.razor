@@ -301,7 +301,7 @@ else
             // Search artists
             artists = await DbContext.Artists
                 .Where(a => a.Name.ToLower().Contains(searchTerm) || 
-                           a.NameNormalized.Contains(searchTerm))
+                           (a.NameNormalized != null && a.NameNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Name.Length)
                 .ThenBy(a => a.Name)
                 .Take(limit)
@@ -318,7 +318,7 @@ else
             albums = await DbContext.Albums
                 .Include(a => a.Artist)
                 .Where(a => a.Title.ToLower().Contains(searchTerm) || 
-                           a.TitleNormalized.Contains(searchTerm))
+                           (a.TitleNormalized != null && a.TitleNormalized.Contains(searchTerm)))
                 .OrderBy(a => a.Title.Length)
                 .ThenBy(a => a.Title)
                 .Take(limit)
