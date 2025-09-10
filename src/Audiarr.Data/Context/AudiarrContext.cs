@@ -96,8 +96,25 @@ public class AudiarrContext : DbContext
         modelBuilder.Entity<Playlist>(entity =>
         {
             entity.HasKey(e => e.Id);
+            
+            // Indexes for performance
             entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.IsPublic);
+            entity.HasIndex(e => e.LastModified);
+            entity.HasIndex(e => new { e.UserId, e.IsPublic })
+                .HasDatabaseName("IX_Playlists_UserId_IsPublic");
+            
+            // Property configurations
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.PlayCount).HasDefaultValue(0);
+            entity.Property(e => e.TrackCount).HasDefaultValue(0);
+            
+            // Configure TotalDuration as ticks for SQLite storage
+            entity.Property(e => e.TotalDuration)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.Ticks : (long?)null,
+                    v => v.HasValue ? new TimeSpan(v.Value) : null);
 
             entity.HasOne(e => e.User)
                 .WithMany(u => u.Playlists)
@@ -110,6 +127,21 @@ public class AudiarrContext : DbContext
         {
             entity.HasKey(e => new { e.PlaylistId, e.TrackId });
 
+            // Indexes for performance
+            entity.HasIndex(e => new { e.PlaylistId, e.Position });
+            entity.HasIndex(e => new { e.PlaylistId, e.PositionFloat })
+                .HasDatabaseName("IX_PlaylistTracks_PlaylistId_PositionFloat");
+            entity.HasIndex(e => e.AddedAt);
+            
+            // Property configurations
+            entity.Property(e => e.PositionFloat)
+                .HasPrecision(18, 6);
+            entity.Property(e => e.AddedBy)
+                .HasMaxLength(50);
+            entity.Property(e => e.AddedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Relationships with cascade delete
             entity.HasOne(e => e.Playlist)
                 .WithMany(p => p.PlaylistTracks)
                 .HasForeignKey(e => e.PlaylistId)
@@ -119,8 +151,6 @@ public class AudiarrContext : DbContext
                 .WithMany(t => t.PlaylistTracks)
                 .HasForeignKey(e => e.TrackId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasIndex(e => new { e.PlaylistId, e.Position });
         });
 
         // Configure Session entity
