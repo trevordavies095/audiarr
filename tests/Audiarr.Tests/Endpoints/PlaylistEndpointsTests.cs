@@ -257,7 +257,7 @@ public class PlaylistEndpointsTests
         // Act & Assert
         Assert.NotNull(request.Tracks);
         Assert.Equal(3, request.Tracks.Count);
-        
+
         // Verify positions maintain proper ordering
         var sortedPositions = request.Tracks.Select(t => t.NewPosition).OrderBy(p => p).ToList();
         Assert.Equal(1.25m, sortedPositions[0]);
@@ -272,10 +272,10 @@ public class PlaylistEndpointsTests
         // In real implementation, this would be handled by the endpoint logic
         var existingTracks = new HashSet<string> { "track1", "track2", "track3" };
         var newTracks = new List<string> { "track2", "track4", "track5" };
-        
+
         // Filter out duplicates
         var tracksToAdd = newTracks.Where(t => !existingTracks.Contains(t)).ToList();
-        
+
         Assert.Equal(2, tracksToAdd.Count);
         Assert.Contains("track4", tracksToAdd);
         Assert.Contains("track5", tracksToAdd);

@@ -21,10 +21,10 @@ public class PlaylistTrackTests
         Assert.Equal(0, playlistTrack.Position);
         Assert.Equal(0m, playlistTrack.PositionFloat);
         Assert.Null(playlistTrack.AddedBy);
-        
+
         // AddedAt should be close to current UTC time (within 1 second)
         var timeDifference = DateTime.UtcNow - playlistTrack.AddedAt;
-        Assert.True(timeDifference.TotalSeconds < 1, 
+        Assert.True(timeDifference.TotalSeconds < 1,
             $"AddedAt should be close to current time. Difference: {timeDifference.TotalSeconds} seconds");
     }
 
@@ -70,7 +70,7 @@ public class PlaylistTrackTests
     {
         // Arrange
         var testDate = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc);
-        
+
         var playlistTrack = new PlaylistTrack
         {
             PlaylistId = "playlist123",
@@ -174,7 +174,7 @@ public class PlaylistTrackTests
     {
         // This test verifies that PlaylistId and TrackId are required
         // The compiler enforces this, but we can test runtime behavior
-        
+
         // Arrange & Act
         var playlistTrack = new PlaylistTrack
         {
@@ -213,7 +213,7 @@ public class PlaylistTrackTests
     {
         // This test demonstrates how PositionFloat can handle multiple insertions
         // without needing to reindex
-        
+
         // Arrange - Start with two tracks
         decimal position1 = 1.0m;
         decimal position2 = 2.0m;
@@ -231,7 +231,7 @@ public class PlaylistTrackTests
         Assert.Equal(10, positions.Count);
         Assert.All(positions, p => Assert.True(p > 1.0m && p < 2.0m));
         Assert.Equal(positions.Count, positions.Distinct().Count()); // All unique
-        
+
         // Verify they're in descending order (each new one is closer to 1.0)
         for (int i = 1; i < positions.Count; i++)
         {

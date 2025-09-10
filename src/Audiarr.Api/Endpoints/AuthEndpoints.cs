@@ -157,14 +157,14 @@ public static class AuthEndpoints
             {
                 return Results.BadRequest("Current password is incorrect");
             }
-            
+
             // Get the user from the current context to ensure it's tracked
             var userToUpdate = await context.Users.FindAsync(validUser.Id);
             if (userToUpdate == null)
             {
                 return Results.BadRequest("User not found");
             }
-            
+
             // Update password
             userToUpdate.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             context.Update(userToUpdate);  // Mark entity as modified since we're using NoTracking globally
@@ -172,7 +172,7 @@ public static class AuthEndpoints
 
             // Revoke all sessions for security
             await authService.RevokeAllUserSessionsAsync(userToUpdate.Id);
-            
+
             return Results.Ok(new { message = "Password changed successfully. Please login again." });
         })
         .WithName("ChangePassword")

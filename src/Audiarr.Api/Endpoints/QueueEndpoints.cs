@@ -54,8 +54,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid request",
                     Detail = ex.Message,
                     Status = 400
@@ -88,8 +88,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentOutOfRangeException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid index",
                     Detail = ex.Message,
                     Status = 400
@@ -143,8 +143,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentOutOfRangeException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid index",
                     Detail = ex.Message,
                     Status = 400
@@ -152,8 +152,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid request",
                     Detail = ex.Message,
                     Status = 400
@@ -168,7 +168,7 @@ public static class QueueEndpoints
         .Produces(401);
 
         // Additional endpoints for completeness
-        
+
         // PUT /api/v2/queue - Update queue settings
         group.MapPut("/", async (
             [FromBody] UpdateQueueRequest request,
@@ -188,8 +188,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentOutOfRangeException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid request",
                     Detail = ex.Message,
                     Status = 400
@@ -222,8 +222,8 @@ public static class QueueEndpoints
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(new ProblemDetails 
-                { 
+                return Results.BadRequest(new ProblemDetails
+                {
                     Title = "Invalid request",
                     Detail = ex.Message,
                     Status = 400

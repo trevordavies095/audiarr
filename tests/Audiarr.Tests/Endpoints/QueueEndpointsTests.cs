@@ -55,7 +55,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
                 {
                     var scopedServices = scope.ServiceProvider;
                     var db = scopedServices.GetRequiredService<AudiarrContext>();
-                    
+
                     db.Database.EnsureCreated();
                     SeedTestData(db);
                 }
@@ -131,7 +131,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var loginData = JsonSerializer.Deserialize<JsonElement>(loginResponse);
         _accessToken = loginData.GetProperty("accessToken").GetString();
 
-        _client.DefaultRequestHeaders.Authorization = 
+        _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _accessToken);
     }
 
@@ -159,7 +159,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(_testUserId, queue.UserId);
         Assert.Empty(queue.TrackIds);
@@ -175,14 +175,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // First add some tracks
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3" },
             Source = "test"
         };
-        
+
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", addRequest);
 
         // Act
@@ -191,7 +191,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(3, queue.TrackIds.Count);
         Assert.Equal("test", queue.QueueSource);
@@ -218,7 +218,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(2, queue.TrackIds.Count);
         Assert.Equal("test-track-1", queue.CurrentTrackId);
@@ -249,14 +249,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // First add some tracks
         var initialRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", initialRequest);
-        
+
         // Now add tracks with PlayNext
         var request = new AddToQueueRequest
         {
@@ -270,7 +270,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(5, queue.TrackIds.Count);
         Assert.Equal("test-track-1", queue.TrackIds[0]); // Current
@@ -287,7 +287,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
@@ -301,7 +301,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(2, queue.TrackIds.Count);
         Assert.Equal("test-track-1", queue.TrackIds[0]);
@@ -332,7 +332,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
@@ -346,7 +346,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Empty(queue.TrackIds);
         Assert.Null(queue.CurrentTrackId);
@@ -357,14 +357,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", addRequest);
-        
+
         // Update current index to track-2
         var updateRequest = new UpdateQueueRequest { CurrentIndex = 1 };
         await _client.PutAsJsonAsync("/api/v2/queue", updateRequest);
@@ -375,7 +375,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Single(queue.TrackIds);
         Assert.Equal("test-track-2", queue.CurrentTrackId);
@@ -390,14 +390,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3", "test-track-4" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", addRequest);
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "test-track-2",
@@ -410,7 +410,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(4, queue.TrackIds.Count);
         Assert.Equal("test-track-1", queue.TrackIds[0]);
@@ -424,7 +424,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "non-existent",
@@ -449,7 +449,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             RepeatMode = RepeatMode.All
@@ -461,7 +461,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(RepeatMode.All, queue.RepeatMode);
     }
@@ -471,14 +471,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3", "test-track-4", "test-track-5" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", addRequest);
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             IsShuffled = true
@@ -490,7 +490,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.True(queue.IsShuffled);
         Assert.Equal(5, queue.TrackIds.Count);
@@ -507,14 +507,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add tracks first
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2", "test-track-3" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", addRequest);
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             CurrentIndex = 2
@@ -526,7 +526,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(2, queue.CurrentIndex);
         Assert.Equal("test-track-3", queue.CurrentTrackId);
@@ -541,14 +541,14 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Arrange
         await AuthenticateAsync();
-        
+
         // Add initial tracks
         var initialRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "test-track-1", "test-track-2" }
         };
         await _client.PostAsJsonAsync("/api/v2/queue/tracks", initialRequest);
-        
+
         var replaceRequest = new ReplaceQueueRequest
         {
             TrackIds = new List<string> { "test-track-3", "test-track-4", "test-track-5" },
@@ -562,7 +562,7 @@ public class QueueEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         // Assert
         response.EnsureSuccessStatusCode();
         var queue = await response.Content.ReadFromJsonAsync<QueueStateDto>();
-        
+
         Assert.NotNull(queue);
         Assert.Equal(3, queue.TrackIds.Count);
         Assert.Equal("test-track-3", queue.TrackIds[0]);

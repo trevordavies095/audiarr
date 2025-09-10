@@ -200,7 +200,7 @@ public static class PlaylistEndpoints
                 }
 
                 playlist.TrackCount = (int)position;
-                
+
                 // Calculate total duration
                 var totalMs = tracks.Sum(t => t.DurationMs);
                 if (totalMs > 0)
@@ -314,10 +314,10 @@ public static class PlaylistEndpoints
             var playlistTracks = await db.PlaylistTracks
                 .Where(pt => pt.PlaylistId == id)
                 .ToListAsync();
-            
+
             db.PlaylistTracks.RemoveRange(playlistTracks);
             db.Playlists.Remove(playlist);
-            
+
             await db.SaveChangesAsync();
 
             return Results.Ok(new { message = "Playlist deleted successfully" });

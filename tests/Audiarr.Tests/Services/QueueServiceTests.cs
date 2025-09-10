@@ -28,11 +28,11 @@ public class QueueServiceTests : IDisposable
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .EnableServiceProviderCaching(false)
             .Options;
-        
+
         _context = new AudiarrContext(options);
         _loggerMock = new Mock<ILogger<QueueService>>();
         _queueService = new QueueService(_context, _loggerMock.Object);
-        
+
         // Seed test data
         SeedTestData();
     }
@@ -49,7 +49,7 @@ public class QueueServiceTests : IDisposable
             Role = "user"
         };
         _context.Users.Add(user);
-        
+
         // Add test tracks
         var artist = new Artist
         {
@@ -57,7 +57,7 @@ public class QueueServiceTests : IDisposable
             Name = "Test Artist"
         };
         _context.Artists.Add(artist);
-        
+
         var album = new Album
         {
             Id = "album-1",
@@ -65,7 +65,7 @@ public class QueueServiceTests : IDisposable
             ArtistId = artist.Id
         };
         _context.Albums.Add(album);
-        
+
         for (int i = 1; i <= 5; i++)
         {
             var track = new Track
@@ -80,7 +80,7 @@ public class QueueServiceTests : IDisposable
             };
             _context.Tracks.Add(track);
         }
-        
+
         _context.SaveChanges();
     }
 
@@ -91,7 +91,7 @@ public class QueueServiceTests : IDisposable
     {
         // Act
         var result = await _queueService.GetQueueAsync(_testUserId);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(_testUserId, result.UserId);
@@ -101,7 +101,7 @@ public class QueueServiceTests : IDisposable
         Assert.Equal(RepeatMode.None, result.RepeatMode);
         Assert.False(result.IsShuffled);
         Assert.Equal(1, result.Version);
-        
+
         // Verify queue was created in database
         var queueInDb = await _context.PlaybackQueues.FirstOrDefaultAsync(q => q.UserId == _testUserId);
         Assert.NotNull(queueInDb);
@@ -123,10 +123,10 @@ public class QueueServiceTests : IDisposable
         existingQueue.CurrentIndex = 2; // Set after SetTracks
         _context.PlaybackQueues.Add(existingQueue);
         await _context.SaveChangesAsync();
-        
+
         // Act
         var result = await _queueService.GetQueueAsync(_testUserId);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(existingQueue.Id, result.QueueId);
@@ -150,10 +150,10 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" },
             Source = "test"
         };
-        
+
         // Act
         var result = await _queueService.AddTracksAsync(_testUserId, request);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(3, result.TrackIds.Count);
@@ -173,17 +173,17 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, initialRequest);
-        
+
         // Now add tracks with PlayNext
         var request = new AddToQueueRequest
         {
             TrackIds = new List<string> { "track-4", "track-5" },
             PlayNext = true
         };
-        
+
         // Act
         var result = await _queueService.AddTracksAsync(_testUserId, request);
-        
+
         // Assert
         Assert.Equal(5, result.TrackIds.Count);
         Assert.Equal("track-1", result.TrackIds[0]); // Current track
@@ -201,7 +201,7 @@ public class QueueServiceTests : IDisposable
         {
             TrackIds = new List<string> { "track-1", "non-existent-track" }
         };
-        
+
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => _queueService.AddTracksAsync(_testUserId, request));
@@ -220,15 +220,15 @@ public class QueueServiceTests : IDisposable
             // Add each track 201 times (5 * 201 = 1005 > 1000)
             trackIds.AddRange(Enumerable.Repeat($"track-{i}", 201));
         }
-        
+
         var request = new AddToQueueRequest
         {
             TrackIds = trackIds
         };
-        
+
         // Act
         var result = await _queueService.AddTracksAsync(_testUserId, request);
-        
+
         // Assert
         // The service deduplicates using Distinct() before validation,
         // so it will only add the 5 unique tracks
@@ -249,10 +249,10 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Act - remove track at index 2 (track-3)
         var result = await _queueService.RemoveTrackAtIndexAsync(_testUserId, 2);
-        
+
         // Assert
         Assert.Equal(3, result.TrackIds.Count);
         Assert.Equal("track-1", result.TrackIds[0]);
@@ -269,13 +269,13 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set current index to 3 (track-4)
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 3 });
-        
+
         // Act - remove track at index 1 (track-2)
         var result = await _queueService.RemoveTrackAtIndexAsync(_testUserId, 1);
-        
+
         // Assert
         Assert.Equal(2, result.CurrentIndex); // Adjusted from 3 to 2
         Assert.Equal("track-4", result.CurrentTrackId); // Still the same track
@@ -290,13 +290,13 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set current index to 1 (track-2)
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 1 });
-        
+
         // Act - remove current track
         var result = await _queueService.RemoveTrackAtIndexAsync(_testUserId, 1);
-        
+
         // Assert
         Assert.Equal(2, result.TrackIds.Count);
         Assert.Equal(1, result.CurrentIndex); // Same index
@@ -312,7 +312,7 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _queueService.RemoveTrackAtIndexAsync(_testUserId, 5));
@@ -333,10 +333,10 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Act
         var result = await _queueService.ClearQueueAsync(_testUserId, keepCurrentTrack: false);
-        
+
         // Assert
         Assert.Empty(result.TrackIds);
         Assert.Null(result.CurrentTrackId);
@@ -353,13 +353,13 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set current to track-2
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 1 });
-        
+
         // Act
         var result = await _queueService.ClearQueueAsync(_testUserId, keepCurrentTrack: true);
-        
+
         // Assert
         Assert.Single(result.TrackIds);
         Assert.Equal("track-2", result.TrackIds[0]);
@@ -380,16 +380,16 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4", "track-5" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "track-2",
             NewIndex = 3
         };
-        
+
         // Act
         var result = await _queueService.ReorderQueueAsync(_testUserId, reorderRequest);
-        
+
         // Assert
         Assert.Equal(5, result.TrackIds.Count);
         Assert.Equal("track-1", result.TrackIds[0]);
@@ -408,19 +408,19 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Set current to track-2 (index 1)
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { CurrentIndex = 1 });
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "track-2",
             NewIndex = 3
         };
-        
+
         // Act
         var result = await _queueService.ReorderQueueAsync(_testUserId, reorderRequest);
-        
+
         // Assert
         Assert.Equal(3, result.CurrentIndex); // Current index follows the track
         Assert.Equal("track-2", result.CurrentTrackId);
@@ -435,13 +435,13 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "non-existent",
             NewIndex = 0
         };
-        
+
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => _queueService.ReorderQueueAsync(_testUserId, reorderRequest));
@@ -457,13 +457,13 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var reorderRequest = new ReorderQueueRequest
         {
             TrackId = "track-1",
             NewIndex = 5
         };
-        
+
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _queueService.ReorderQueueAsync(_testUserId, reorderRequest));
@@ -482,16 +482,16 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2" }
         };
         await _queueService.AddTracksAsync(_testUserId, initialRequest);
-        
+
         var replaceRequest = new ReplaceQueueRequest
         {
             TrackIds = new List<string> { "track-3", "track-4", "track-5" },
             Source = "album"
         };
-        
+
         // Act
         var result = await _queueService.ReplaceQueueAsync(_testUserId, replaceRequest);
-        
+
         // Assert
         Assert.Equal(3, result.TrackIds.Count);
         Assert.Equal("track-3", result.TrackIds[0]);
@@ -511,10 +511,10 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" },
             StartIndex = 2
         };
-        
+
         // Act
         var result = await _queueService.ReplaceQueueAsync(_testUserId, replaceRequest);
-        
+
         // Assert
         Assert.Equal(2, result.CurrentIndex);
         Assert.Equal("track-3", result.CurrentTrackId);
@@ -528,7 +528,7 @@ public class QueueServiceTests : IDisposable
         {
             TrackIds = new List<string> { "track-1", "non-existent" }
         };
-        
+
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => _queueService.ReplaceQueueAsync(_testUserId, replaceRequest));
@@ -544,15 +544,15 @@ public class QueueServiceTests : IDisposable
     {
         // Arrange
         await _queueService.GetQueueAsync(_testUserId); // Create queue
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             RepeatMode = RepeatMode.One
         };
-        
+
         // Act
         var result = await _queueService.UpdateQueueSettingsAsync(_testUserId, updateRequest);
-        
+
         // Assert
         Assert.Equal(RepeatMode.One, result.RepeatMode);
     }
@@ -566,15 +566,15 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4", "track-5" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             IsShuffled = true
         };
-        
+
         // Act
         var result = await _queueService.UpdateQueueSettingsAsync(_testUserId, updateRequest);
-        
+
         // Assert
         Assert.True(result.IsShuffled);
         Assert.Equal(5, result.TrackIds.Count);
@@ -595,19 +595,19 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3", "track-4" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         // Enable shuffle first
         await _queueService.UpdateQueueSettingsAsync(_testUserId, new UpdateQueueRequest { IsShuffled = true });
-        
+
         // Now disable shuffle
         var updateRequest = new UpdateQueueRequest
         {
             IsShuffled = false
         };
-        
+
         // Act
         var result = await _queueService.UpdateQueueSettingsAsync(_testUserId, updateRequest);
-        
+
         // Assert
         Assert.False(result.IsShuffled);
         // Should restore original order
@@ -626,15 +626,15 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2", "track-3" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             CurrentIndex = 2
         };
-        
+
         // Act
         var result = await _queueService.UpdateQueueSettingsAsync(_testUserId, updateRequest);
-        
+
         // Assert
         Assert.Equal(2, result.CurrentIndex);
         Assert.Equal("track-3", result.CurrentTrackId);
@@ -649,12 +649,12 @@ public class QueueServiceTests : IDisposable
             TrackIds = new List<string> { "track-1", "track-2" }
         };
         await _queueService.AddTracksAsync(_testUserId, addRequest);
-        
+
         var updateRequest = new UpdateQueueRequest
         {
             CurrentIndex = 5
         };
-        
+
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _queueService.UpdateQueueSettingsAsync(_testUserId, updateRequest));
@@ -670,14 +670,14 @@ public class QueueServiceTests : IDisposable
         // Arrange & Act
         var queue1 = await _queueService.GetQueueAsync(_testUserId);
         Assert.Equal(1, queue1.Version);
-        
+
         var addRequest = new AddToQueueRequest
         {
             TrackIds = new List<string> { "track-1" }
         };
         var queue2 = await _queueService.AddTracksAsync(_testUserId, addRequest);
         Assert.Equal(2, queue2.Version);
-        
+
         var queue3 = await _queueService.ClearQueueAsync(_testUserId, false);
         Assert.Equal(3, queue3.Version);
     }

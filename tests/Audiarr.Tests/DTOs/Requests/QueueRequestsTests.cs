@@ -9,7 +9,7 @@ namespace Audiarr.Tests.DTOs.Requests;
 public class QueueRequestsTests
 {
     #region AddToQueueRequest Tests
-    
+
     [Fact]
     public void AddToQueueRequest_ValidRequest_PassesValidation()
     {

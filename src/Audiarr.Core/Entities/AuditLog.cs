@@ -8,7 +8,7 @@ public class AuditLog
     public string PerformedByUserId { get; set; } = string.Empty;
     public string? Details { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    
+
     // Navigation properties
     public virtual User? TargetUser { get; set; }
     public virtual User PerformedByUser { get; set; } = null!;

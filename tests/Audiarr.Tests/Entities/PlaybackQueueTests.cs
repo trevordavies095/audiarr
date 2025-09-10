@@ -34,7 +34,7 @@ public class PlaybackQueueTests
     {
         // Arrange
         var now = DateTime.UtcNow;
-        
+
         // Act
         var queue = new PlaybackQueue
         {
@@ -102,7 +102,7 @@ public class PlaybackQueueTests
         Assert.Contains("track1", queue.QueueStateJson);
         Assert.Contains("track2", queue.QueueStateJson);
         Assert.Contains("track3", queue.QueueStateJson);
-        
+
         // Verify it can be deserialized back
         var deserializedState = JsonSerializer.Deserialize<QueueState>(queue.QueueStateJson);
         Assert.NotNull(deserializedState);
@@ -244,14 +244,14 @@ public class PlaybackQueueTests
         Assert.Equal(5, queue.QueueState.OriginalTrackIds?.Count);
         Assert.Equal(5, queue.QueueState.ShuffledTrackIds?.Count);
         Assert.True(queue.IsShuffled);
-        
+
         // Verify shuffled list contains all tracks
         Assert.NotNull(queue.QueueState.ShuffledTrackIds);
         foreach (var track in tracks)
         {
             Assert.Contains(track, queue.QueueState.ShuffledTrackIds);
         }
-        
+
         // Verify original order is preserved
         Assert.Equal(tracks, queue.QueueState.OriginalTrackIds);
     }

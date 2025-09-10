@@ -38,20 +38,20 @@ public class AudiarrContextTests : IDisposable
 
         // Check indexes
         var indexes = entityType.GetIndexes().ToList();
-        
+
         // Verify UserId index exists
         Assert.Contains(indexes, i => i.Properties.Any(p => p.Name == "UserId"));
-        
+
         // Verify IsPublic index exists
         Assert.Contains(indexes, i => i.Properties.Any(p => p.Name == "IsPublic"));
-        
+
         // Verify LastModified index exists
         Assert.Contains(indexes, i => i.Properties.Any(p => p.Name == "LastModified"));
-        
+
         // Verify composite index on UserId and IsPublic exists
-        Assert.Contains(indexes, i => 
-            i.Properties.Count == 2 && 
-            i.Properties.Any(p => p.Name == "UserId") && 
+        Assert.Contains(indexes, i =>
+            i.Properties.Count == 2 &&
+            i.Properties.Any(p => p.Name == "UserId") &&
             i.Properties.Any(p => p.Name == "IsPublic"));
     }
 
@@ -93,7 +93,7 @@ public class AudiarrContextTests : IDisposable
 
         var totalDurationProperty = entityType?.FindProperty("TotalDuration");
         Assert.NotNull(totalDurationProperty);
-        
+
         // Verify that a value converter is configured
         var converter = totalDurationProperty.GetValueConverter();
         Assert.NotNull(converter);
@@ -109,19 +109,19 @@ public class AudiarrContextTests : IDisposable
 
         // Check indexes
         var indexes = entityType.GetIndexes().ToList();
-        
+
         // Verify composite index on PlaylistId and Position exists
-        Assert.Contains(indexes, i => 
-            i.Properties.Count == 2 && 
-            i.Properties.Any(p => p.Name == "PlaylistId") && 
+        Assert.Contains(indexes, i =>
+            i.Properties.Count == 2 &&
+            i.Properties.Any(p => p.Name == "PlaylistId") &&
             i.Properties.Any(p => p.Name == "Position"));
-        
+
         // Verify composite index on PlaylistId and PositionFloat exists
-        Assert.Contains(indexes, i => 
-            i.Properties.Count == 2 && 
-            i.Properties.Any(p => p.Name == "PlaylistId") && 
+        Assert.Contains(indexes, i =>
+            i.Properties.Count == 2 &&
+            i.Properties.Any(p => p.Name == "PlaylistId") &&
             i.Properties.Any(p => p.Name == "PositionFloat"));
-        
+
         // Verify AddedAt index exists
         Assert.Contains(indexes, i => i.Properties.Any(p => p.Name == "AddedAt"));
     }
@@ -158,7 +158,7 @@ public class AudiarrContextTests : IDisposable
     public void Playlist_Should_Cascade_Delete_PlaylistTracks()
     {
         using var context = new AudiarrContext(_options);
-        
+
         // Create a user
         var user = new User
         {
@@ -169,7 +169,7 @@ public class AudiarrContextTests : IDisposable
             Role = "user"
         };
         context.Users.Add(user);
-        
+
         // Create an artist and album
         var artist = new Artist
         {
@@ -177,7 +177,7 @@ public class AudiarrContextTests : IDisposable
             Name = "Test Artist"
         };
         context.Artists.Add(artist);
-        
+
         var album = new Album
         {
             Id = Guid.NewGuid().ToString(),
@@ -185,7 +185,7 @@ public class AudiarrContextTests : IDisposable
             ArtistId = artist.Id
         };
         context.Albums.Add(album);
-        
+
         // Create a track
         var track = new Track
         {
@@ -196,7 +196,7 @@ public class AudiarrContextTests : IDisposable
             AlbumId = album.Id
         };
         context.Tracks.Add(track);
-        
+
         // Create a playlist
         var playlist = new Playlist
         {
@@ -205,7 +205,7 @@ public class AudiarrContextTests : IDisposable
             UserId = user.Id
         };
         context.Playlists.Add(playlist);
-        
+
         // Add track to playlist
         var playlistTrack = new PlaylistTrack
         {
@@ -215,16 +215,16 @@ public class AudiarrContextTests : IDisposable
             PositionFloat = 0
         };
         context.PlaylistTracks.Add(playlistTrack);
-        
+
         context.SaveChanges();
-        
+
         // Verify the playlist track exists
         Assert.Single(context.PlaylistTracks);
-        
+
         // Delete the playlist
         context.Playlists.Remove(playlist);
         context.SaveChanges();
-        
+
         // Verify the playlist track was cascade deleted
         Assert.Empty(context.PlaylistTracks);
     }
@@ -233,7 +233,7 @@ public class AudiarrContextTests : IDisposable
     public void Track_Deletion_Should_Cascade_Delete_PlaylistTracks()
     {
         using var context = new AudiarrContext(_options);
-        
+
         // Create a user
         var user = new User
         {
@@ -244,7 +244,7 @@ public class AudiarrContextTests : IDisposable
             Role = "user"
         };
         context.Users.Add(user);
-        
+
         // Create an artist and album
         var artist = new Artist
         {
@@ -252,7 +252,7 @@ public class AudiarrContextTests : IDisposable
             Name = "Test Artist 2"
         };
         context.Artists.Add(artist);
-        
+
         var album = new Album
         {
             Id = Guid.NewGuid().ToString(),
@@ -260,7 +260,7 @@ public class AudiarrContextTests : IDisposable
             ArtistId = artist.Id
         };
         context.Albums.Add(album);
-        
+
         // Create a track
         var track = new Track
         {
@@ -271,7 +271,7 @@ public class AudiarrContextTests : IDisposable
             AlbumId = album.Id
         };
         context.Tracks.Add(track);
-        
+
         // Create a playlist
         var playlist = new Playlist
         {
@@ -280,7 +280,7 @@ public class AudiarrContextTests : IDisposable
             UserId = user.Id
         };
         context.Playlists.Add(playlist);
-        
+
         // Add track to playlist
         var playlistTrack = new PlaylistTrack
         {
@@ -290,16 +290,16 @@ public class AudiarrContextTests : IDisposable
             PositionFloat = 0
         };
         context.PlaylistTracks.Add(playlistTrack);
-        
+
         context.SaveChanges();
-        
+
         // Verify the playlist track exists
         Assert.Single(context.PlaylistTracks);
-        
+
         // Delete the track
         context.Tracks.Remove(track);
         context.SaveChanges();
-        
+
         // Verify the playlist track was cascade deleted
         Assert.Empty(context.PlaylistTracks);
     }
@@ -308,7 +308,7 @@ public class AudiarrContextTests : IDisposable
     public void Playlist_Default_Values_Should_Be_Applied()
     {
         using var context = new AudiarrContext(_options);
-        
+
         // Create a user
         var user = new User
         {
@@ -320,7 +320,7 @@ public class AudiarrContextTests : IDisposable
         };
         context.Users.Add(user);
         context.SaveChanges();
-        
+
         // Create a playlist without setting PlayCount and TrackCount
         var playlist = new Playlist
         {
@@ -330,11 +330,11 @@ public class AudiarrContextTests : IDisposable
         };
         context.Playlists.Add(playlist);
         context.SaveChanges();
-        
+
         // Reload the playlist from database
         context.Entry(playlist).State = EntityState.Detached;
         var reloadedPlaylist = context.Playlists.Find(playlist.Id);
-        
+
         Assert.NotNull(reloadedPlaylist);
         Assert.Equal(0, reloadedPlaylist.PlayCount);
         Assert.Equal(0, reloadedPlaylist.TrackCount);
@@ -344,7 +344,7 @@ public class AudiarrContextTests : IDisposable
     public void TotalDuration_Should_Store_And_Retrieve_Correctly()
     {
         using var context = new AudiarrContext(_options);
-        
+
         // Create a user
         var user = new User
         {
@@ -355,7 +355,7 @@ public class AudiarrContextTests : IDisposable
             Role = "user"
         };
         context.Users.Add(user);
-        
+
         // Create a playlist with TotalDuration
         var expectedDuration = TimeSpan.FromMinutes(42.5);
         var playlist = new Playlist
@@ -367,11 +367,11 @@ public class AudiarrContextTests : IDisposable
         };
         context.Playlists.Add(playlist);
         context.SaveChanges();
-        
+
         // Reload the playlist from database
         context.Entry(playlist).State = EntityState.Detached;
         var reloadedPlaylist = context.Playlists.Find(playlist.Id);
-        
+
         Assert.NotNull(reloadedPlaylist);
         Assert.NotNull(reloadedPlaylist.TotalDuration);
         Assert.Equal(expectedDuration, reloadedPlaylist.TotalDuration.Value);
@@ -381,7 +381,7 @@ public class AudiarrContextTests : IDisposable
     public void TotalDuration_Should_Handle_Null_Values()
     {
         using var context = new AudiarrContext(_options);
-        
+
         // Create a user
         var user = new User
         {
@@ -392,7 +392,7 @@ public class AudiarrContextTests : IDisposable
             Role = "user"
         };
         context.Users.Add(user);
-        
+
         // Create a playlist without TotalDuration
         var playlist = new Playlist
         {
@@ -403,11 +403,11 @@ public class AudiarrContextTests : IDisposable
         };
         context.Playlists.Add(playlist);
         context.SaveChanges();
-        
+
         // Reload the playlist from database
         context.Entry(playlist).State = EntityState.Detached;
         var reloadedPlaylist = context.Playlists.Find(playlist.Id);
-        
+
         Assert.NotNull(reloadedPlaylist);
         Assert.Null(reloadedPlaylist.TotalDuration);
     }
