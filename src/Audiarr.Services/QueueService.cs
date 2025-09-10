@@ -380,6 +380,147 @@ public class QueueService : IQueueService
         return queue;
     }
 
+    public async Task<QueueStateDto> NextTrackAsync(string userId)
+    {
+        var queue = await GetOrCreateQueueAsync(userId);
+        var queueState = queue.QueueState;
+
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
+
+        if (!queueState.TrackIds.Any())
+        {
+            throw new InvalidOperationException("Queue is empty");
+        }
+
+        var trackCount = queueState.TrackIds.Count;
+        var currentIndex = queue.CurrentIndex;
+        int nextIndex;
+
+        // Handle based on repeat mode
+        if (queue.RepeatMode == RepeatMode.One)
+        {
+            // Always stay on current track when repeat one is enabled
+            nextIndex = currentIndex;
+        }
+        else
+        {
+            nextIndex = currentIndex + 1;
+            
+            // Handle edge cases at end of queue
+            if (nextIndex >= trackCount)
+            {
+                switch (queue.RepeatMode)
+                {
+                    case RepeatMode.All:
+                        // Loop back to first track
+                        nextIndex = 0;
+                        break;
+                    case RepeatMode.None:
+                    default:
+                        // Stay on last track
+                        nextIndex = trackCount - 1;
+                        break;
+                }
+            }
+        }
+
+        queue.CurrentIndex = nextIndex;
+        queue.CurrentTrackId = queueState.TrackIds[nextIndex];
+        queue.UpdateActivity();
+        queue.Version++;
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Moved to next track (index {Index}) in queue for user {UserId}", nextIndex, userId);
+
+        return MapToDto(queue);
+    }
+
+    public async Task<QueueStateDto> PreviousTrackAsync(string userId)
+    {
+        var queue = await GetOrCreateQueueAsync(userId);
+        var queueState = queue.QueueState;
+
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
+
+        if (!queueState.TrackIds.Any())
+        {
+            throw new InvalidOperationException("Queue is empty");
+        }
+
+        var trackCount = queueState.TrackIds.Count;
+        var currentIndex = queue.CurrentIndex;
+        int previousIndex;
+
+        // Handle based on repeat mode
+        if (queue.RepeatMode == RepeatMode.One)
+        {
+            // Always stay on current track when repeat one is enabled
+            previousIndex = currentIndex;
+        }
+        else
+        {
+            previousIndex = currentIndex - 1;
+            
+            // Handle edge cases at start of queue
+            if (previousIndex < 0)
+            {
+                switch (queue.RepeatMode)
+                {
+                    case RepeatMode.All:
+                        // Loop to last track
+                        previousIndex = trackCount - 1;
+                        break;
+                    case RepeatMode.None:
+                    default:
+                        // Stay on first track
+                        previousIndex = 0;
+                        break;
+                }
+            }
+        }
+
+        queue.CurrentIndex = previousIndex;
+        queue.CurrentTrackId = queueState.TrackIds[previousIndex];
+        queue.UpdateActivity();
+        queue.Version++;
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Moved to previous track (index {Index}) in queue for user {UserId}", previousIndex, userId);
+
+        return MapToDto(queue);
+    }
+
+    public async Task<QueueStateDto> JumpToPositionAsync(string userId, int index)
+    {
+        var queue = await GetOrCreateQueueAsync(userId);
+        var queueState = queue.QueueState;
+
+        // Ensure TrackIds is initialized
+        queueState.TrackIds ??= new List<string>();
+
+        if (!queueState.TrackIds.Any())
+        {
+            throw new InvalidOperationException("Queue is empty");
+        }
+
+        if (index < 0 || index >= queueState.TrackIds.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), $"Index {index} is out of range. Queue has {queueState.TrackIds.Count} tracks.");
+        }
+
+        queue.CurrentIndex = index;
+        queue.CurrentTrackId = queueState.TrackIds[index];
+        queue.UpdateActivity();
+        queue.Version++;
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Jumped to position {Index} in queue for user {UserId}", index, userId);
+
+        return MapToDto(queue);
+    }
+
     private QueueStateDto MapToDto(PlaybackQueue queue)
     {
         var queueState = queue.QueueState;

@@ -236,6 +236,152 @@ public static class QueueEndpoints
         .Produces<QueueStateDto>()
         .Produces<ProblemDetails>(400)
         .Produces(401);
+
+        // Playback Control Endpoints
+
+        // PUT /api/v2/queue/settings - Update queue settings (repeat/shuffle)
+        group.MapPut("/settings", async (
+            [FromBody] UpdateQueueRequest request,
+            ClaimsPrincipal user,
+            IQueueService queueService) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var queue = await queueService.UpdateQueueSettingsAsync(userId, request);
+                return Results.Ok(queue);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return Results.BadRequest(new ProblemDetails
+                {
+                    Title = "Invalid request",
+                    Detail = ex.Message,
+                    Status = 400
+                });
+            }
+        })
+        .WithName("UpdatePlaybackSettings")
+        .WithSummary("Update queue settings")
+        .WithDescription("Updates repeat mode and shuffle settings for the playback queue")
+        .Produces<QueueStateDto>()
+        .Produces<ProblemDetails>(400)
+        .Produces(401);
+
+        // POST /api/v2/queue/next - Skip to next track
+        group.MapPost("/next", async (
+            ClaimsPrincipal user,
+            IQueueService queueService) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var queue = await queueService.NextTrackAsync(userId);
+                return Results.Ok(queue);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.NotFound(new ProblemDetails
+                {
+                    Title = "Queue empty",
+                    Detail = ex.Message,
+                    Status = 404
+                });
+            }
+        })
+        .WithName("NextTrack")
+        .WithSummary("Skip to next track")
+        .WithDescription("Moves to the next track in the queue, respecting repeat mode settings")
+        .Produces<QueueStateDto>()
+        .Produces<ProblemDetails>(404)
+        .Produces(401);
+
+        // POST /api/v2/queue/previous - Go to previous track
+        group.MapPost("/previous", async (
+            ClaimsPrincipal user,
+            IQueueService queueService) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var queue = await queueService.PreviousTrackAsync(userId);
+                return Results.Ok(queue);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.NotFound(new ProblemDetails
+                {
+                    Title = "Queue empty",
+                    Detail = ex.Message,
+                    Status = 404
+                });
+            }
+        })
+        .WithName("PreviousTrack")
+        .WithSummary("Go to previous track")
+        .WithDescription("Moves to the previous track in the queue, respecting repeat mode settings")
+        .Produces<QueueStateDto>()
+        .Produces<ProblemDetails>(404)
+        .Produces(401);
+
+        // PUT /api/v2/queue/position/{index} - Jump to specific track
+        group.MapPut("/position/{index:int}", async (
+            int index,
+            ClaimsPrincipal user,
+            IQueueService queueService) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var queue = await queueService.JumpToPositionAsync(userId, index);
+                return Results.Ok(queue);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.NotFound(new ProblemDetails
+                {
+                    Title = "Queue empty",
+                    Detail = ex.Message,
+                    Status = 404
+                });
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return Results.BadRequest(new ProblemDetails
+                {
+                    Title = "Invalid index",
+                    Detail = ex.Message,
+                    Status = 400
+                });
+            }
+        })
+        .WithName("JumpToPosition")
+        .WithSummary("Jump to specific track")
+        .WithDescription("Jumps to a specific track position in the queue")
+        .Produces<QueueStateDto>()
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(404)
+        .Produces(401);
     }
 }
 
