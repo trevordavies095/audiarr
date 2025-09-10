@@ -17,8 +17,14 @@ using Serilog.Events;
 using Audiarr.Core.Entities;
 using Audiarr.Core.DTOs;
 
-// Configure Serilog - Docker-first approach with fixed paths
+// Configure Serilog - Docker-first approach with fallback for tests
 var logPath = "/data/logs/audiarr-.log";
+// Check if running in Docker or if /data is accessible
+if (!Directory.Exists("/data") || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
+{
+    // Use temp directory for non-Docker environments (tests, local dev)
+    logPath = Path.Combine(Path.GetTempPath(), "audiarr-logs", "audiarr-.log");
+}
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
 Log.Logger = new LoggerConfiguration()
@@ -106,8 +112,14 @@ try
     builder.Services.AddSingleton<ScannerBackgroundService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<ScannerBackgroundService>());
 
-    // Configure SQLite database - Docker-first approach with fixed paths
+    // Configure SQLite database - Docker-first approach with fallback for tests
     var dataPath = "/data";
+    // Check if running in Docker or if /data is accessible
+    if (!Directory.Exists("/data") || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
+    {
+        // Use temp directory for non-Docker environments (tests, local dev)
+        dataPath = Path.Combine(Path.GetTempPath(), "audiarr-data");
+    }
     Directory.CreateDirectory(dataPath);
     var connectionString = $"Data Source={Path.Combine(dataPath, "audiarr.db")}";
     Console.WriteLine($"Database location: {Path.Combine(dataPath, "audiarr.db")}");
