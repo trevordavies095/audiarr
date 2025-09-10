@@ -14,7 +14,7 @@ public class PlaylistTrackDto
     public string? Genre { get; set; }
     public int? Year { get; set; }
     public string FilePath { get; set; } = string.Empty;
-    
+
     // Playlist-specific fields
     public int Position { get; set; }
     public decimal PositionFloat { get; set; }

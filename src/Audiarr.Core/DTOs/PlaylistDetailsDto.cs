@@ -15,7 +15,7 @@ public class PlaylistDetailsDto
     public DateTime UpdatedAt { get; set; }
     public DateTime LastModified { get; set; }
     public int PlayCount { get; set; }
-    
+
     // Include the full list of tracks
     public List<PlaylistTrackDto> Tracks { get; set; } = new();
 }

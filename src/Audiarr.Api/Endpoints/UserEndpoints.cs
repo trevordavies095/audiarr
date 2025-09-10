@@ -93,7 +93,7 @@ public static class UserEndpoints
     {
         if (pageNumber < 1)
             return TypedResults.BadRequest("Page number must be greater than 0");
-        
+
         if (pageSize < 1 || pageSize > 100)
             return TypedResults.BadRequest("Page size must be between 1 and 100");
 
@@ -107,7 +107,7 @@ public static class UserEndpoints
 
         var request = new UserListRequest(pageNumber, pageSize, sortBy, sortOrder, searchTerm);
         var result = await userService.GetUsersAsync(request);
-        
+
         return TypedResults.Ok(result);
     }
 
@@ -116,9 +116,9 @@ public static class UserEndpoints
         string id)
     {
         var user = await userService.GetUserByIdAsync(id);
-        
-        return user != null 
-            ? TypedResults.Ok(user) 
+
+        return user != null
+            ? TypedResults.Ok(user)
             : TypedResults.NotFound();
     }
 
@@ -128,8 +128,8 @@ public static class UserEndpoints
         ILogger<CreateUserRequest> logger)
     {
         // Validate username format (3-20 characters, alphanumeric + underscore)
-        if (string.IsNullOrWhiteSpace(request.Username) || 
-            request.Username.Length < 3 || 
+        if (string.IsNullOrWhiteSpace(request.Username) ||
+            request.Username.Length < 3 ||
             request.Username.Length > 20 ||
             !System.Text.RegularExpressions.Regex.IsMatch(request.Username, @"^[a-zA-Z0-9_]+$"))
         {
@@ -141,7 +141,7 @@ public static class UserEndpoints
         }
 
         // Validate email format
-        if (string.IsNullOrWhiteSpace(request.Email) || 
+        if (string.IsNullOrWhiteSpace(request.Email) ||
             !System.Text.RegularExpressions.Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
         {
             return TypedResults.BadRequest(new ProblemDetails

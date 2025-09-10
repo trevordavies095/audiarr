@@ -39,10 +39,10 @@ public class PlaylistTests
         Assert.Equal(0, playlist.PlayCount);
         Assert.Equal(0, playlist.TrackCount);
         Assert.Null(playlist.TotalDuration);
-        
+
         // LastModified should be close to current UTC time (within 1 second)
         var timeDifference = DateTime.UtcNow - playlist.LastModified;
-        Assert.True(timeDifference.TotalSeconds < 1, 
+        Assert.True(timeDifference.TotalSeconds < 1,
             $"LastModified should be close to current time. Difference: {timeDifference.TotalSeconds} seconds");
     }
 
@@ -117,7 +117,7 @@ public class PlaylistTests
         Assert.NotNull(playlist.Id);
         Assert.NotEqual(default(DateTime), playlist.CreatedAt);
         Assert.NotEqual(default(DateTime), playlist.UpdatedAt);
-        
+
         // Verify it's actually a BaseEntity
         Assert.IsAssignableFrom<BaseEntity>(playlist);
     }
@@ -185,7 +185,7 @@ public class PlaylistTests
     {
         // This test verifies that the required modifier works correctly
         // The compiler enforces this, but we can test runtime behavior
-        
+
         // Arrange & Act
         var playlist = new Playlist
         {

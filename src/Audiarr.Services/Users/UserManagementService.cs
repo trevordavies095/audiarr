@@ -47,7 +47,7 @@ public class UserManagementService : IUserManagementService
     public async Task<PaginatedResponse<UserListDto>> GetUsersAsync(UserListRequest request)
     {
         var cacheKey = $"{UserListCacheKeyPrefix}{request.PageNumber}_{request.PageSize}_{request.SortBy}_{request.SortOrder}_{request.SearchTerm}";
-        
+
         if (_cache.TryGetValue<PaginatedResponse<UserListDto>>(cacheKey, out var cachedResult))
         {
             _logger.LogDebug("Returning cached user list for key: {CacheKey}", cacheKey);
@@ -59,8 +59,8 @@ public class UserManagementService : IUserManagementService
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             var searchTerm = request.SearchTerm.ToLower();
-            query = query.Where(u => 
-                u.Username.ToLower().Contains(searchTerm) || 
+            query = query.Where(u =>
+                u.Username.ToLower().Contains(searchTerm) ||
                 u.Email.ToLower().Contains(searchTerm));
         }
 
@@ -84,7 +84,7 @@ public class UserManagementService : IUserManagementService
             .ToListAsync();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
-        
+
         var response = new PaginatedResponse<UserListDto>(
             users,
             totalCount,
@@ -127,8 +127,8 @@ public class UserManagementService : IUserManagementService
             _ => u => u.Username
         };
 
-        return sortOrder == "desc" 
-            ? query.OrderByDescending(sortExpression) 
+        return sortOrder == "desc"
+            ? query.OrderByDescending(sortExpression)
             : query.OrderBy(sortExpression);
     }
 
@@ -184,7 +184,7 @@ public class UserManagementService : IUserManagementService
     public async Task<bool> IsUsernameUniqueAsync(string username, string? excludeUserId = null)
     {
         var query = _context.Users.Where(u => u.Username.ToLower() == username.ToLower());
-        
+
         if (!string.IsNullOrEmpty(excludeUserId))
         {
             query = query.Where(u => u.Id != excludeUserId);
@@ -196,7 +196,7 @@ public class UserManagementService : IUserManagementService
     public async Task<bool> IsEmailUniqueAsync(string email, string? excludeUserId = null)
     {
         var query = _context.Users.Where(u => u.Email.ToLower() == email.ToLower());
-        
+
         if (!string.IsNullOrEmpty(excludeUserId))
         {
             query = query.Where(u => u.Id != excludeUserId);
@@ -250,7 +250,7 @@ public class UserManagementService : IUserManagementService
         // Hash the new password
         targetUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         targetUser.UpdatedAt = DateTime.UtcNow;
-        
+
         // Ensure the user entity is marked as modified so the password change is saved
         _context.Users.Update(targetUser);
 
@@ -298,7 +298,7 @@ public class UserManagementService : IUserManagementService
 
         var password = new char[length];
         var randomBytes = new byte[length * 4];
-        
+
         using (var rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(randomBytes);
@@ -328,7 +328,7 @@ public class UserManagementService : IUserManagementService
 
     public async Task<UserStatusResponse> UpdateUserStatusAsync(string targetUserId, string performedByUserId, UserStatusRequest request)
     {
-        _logger.LogInformation("Updating user {TargetUserId} status to {IsActive} by admin {AdminUserId}", 
+        _logger.LogInformation("Updating user {TargetUserId} status to {IsActive} by admin {AdminUserId}",
             targetUserId, request.IsActive, performedByUserId);
 
         // Prevent self-disable for admins

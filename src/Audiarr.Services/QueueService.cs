@@ -28,14 +28,14 @@ public class QueueService : IQueueService
     public async Task<QueueStateDto> AddTracksAsync(string userId, AddToQueueRequest request)
     {
         var queue = await GetOrCreateQueueAsync(userId);
-        
+
         // Validate tracks exist
         var trackIds = request.TrackIds.Distinct().ToList();
         var existingTracks = await _context.Tracks
             .Where(t => trackIds.Contains(t.Id))
             .Select(t => t.Id)
             .ToListAsync();
-        
+
         if (existingTracks.Count != trackIds.Count)
         {
             var missingTracks = trackIds.Except(existingTracks).ToList();
@@ -43,10 +43,10 @@ public class QueueService : IQueueService
         }
 
         var queueState = queue.QueueState;
-        
+
         // Ensure TrackIds is initialized
         queueState.TrackIds ??= new List<string>();
-        
+
         if (request.PlayNext && queue.CurrentIndex >= 0 && queue.CurrentIndex < queueState.TrackIds.Count)
         {
             // Insert after current track
@@ -74,20 +74,20 @@ public class QueueService : IQueueService
 
         // Update queue
         queue.QueueState = queueState;
-        
+
         // Set current track if queue was empty
         if (string.IsNullOrEmpty(queue.CurrentTrackId) && queueState.TrackIds.Any())
         {
             queue.CurrentTrackId = queueState.TrackIds.First();
             queue.CurrentIndex = 0;
         }
-        
+
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
         _logger.LogInformation("Added {Count} tracks to queue for user {UserId}", trackIds.Count, userId);
-        
+
         return MapToDto(queue);
     }
 
@@ -95,10 +95,10 @@ public class QueueService : IQueueService
     {
         var queue = await GetOrCreateQueueAsync(userId);
         var queueState = queue.QueueState;
-        
+
         // Ensure TrackIds is initialized
         queueState.TrackIds ??= new List<string>();
-        
+
         if (index < 0 || index >= queueState.TrackIds.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range");
@@ -106,7 +106,7 @@ public class QueueService : IQueueService
 
         var removedTrackId = queueState.TrackIds[index];
         queueState.TrackIds.RemoveAt(index);
-        
+
         // Adjust current index if necessary
         if (queue.CurrentIndex > index)
         {
@@ -131,21 +131,21 @@ public class QueueService : IQueueService
                 queue.CurrentTrackId = null;
             }
         }
-        
+
         queue.QueueState = queueState;
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
         _logger.LogInformation("Removed track at index {Index} from queue for user {UserId}", index, userId);
-        
+
         return MapToDto(queue);
     }
 
     public async Task<QueueStateDto> ClearQueueAsync(string userId, bool keepCurrentTrack = false)
     {
         var queue = await GetOrCreateQueueAsync(userId);
-        
+
         if (keepCurrentTrack && !string.IsNullOrEmpty(queue.CurrentTrackId))
         {
             // Keep only the current track
@@ -159,13 +159,13 @@ public class QueueService : IQueueService
             // Clear everything
             queue.ClearQueue();
         }
-        
+
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
         _logger.LogInformation("Cleared queue for user {UserId} (keepCurrent: {KeepCurrent})", userId, keepCurrentTrack);
-        
+
         return MapToDto(queue);
     }
 
@@ -173,28 +173,28 @@ public class QueueService : IQueueService
     {
         var queue = await GetOrCreateQueueAsync(userId);
         var queueState = queue.QueueState;
-        
+
         // Ensure TrackIds is initialized
         queueState.TrackIds ??= new List<string>();
-        
+
         // Find current position of the track
         var currentIndex = queueState.TrackIds.IndexOf(request.TrackId);
         if (currentIndex == -1)
         {
             throw new ArgumentException($"Track {request.TrackId} not found in queue");
         }
-        
+
         if (request.NewIndex < 0 || request.NewIndex >= queueState.TrackIds.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(request.NewIndex), "New index is out of range");
         }
-        
+
         // Remove from current position
         queueState.TrackIds.RemoveAt(currentIndex);
-        
+
         // Insert at new position
         queueState.TrackIds.Insert(request.NewIndex, request.TrackId);
-        
+
         // Adjust current index if necessary
         if (queue.CurrentTrackId == request.TrackId)
         {
@@ -211,29 +211,29 @@ public class QueueService : IQueueService
             // Track moved from after to before current
             queue.CurrentIndex++;
         }
-        
+
         queue.QueueState = queueState;
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
-        _logger.LogInformation("Reordered track {TrackId} from {OldIndex} to {NewIndex} in queue for user {UserId}", 
+        _logger.LogInformation("Reordered track {TrackId} from {OldIndex} to {NewIndex} in queue for user {UserId}",
             request.TrackId, currentIndex, request.NewIndex, userId);
-        
+
         return MapToDto(queue);
     }
 
     public async Task<QueueStateDto> ReplaceQueueAsync(string userId, ReplaceQueueRequest request)
     {
         var queue = await GetOrCreateQueueAsync(userId);
-        
+
         // Validate tracks exist
         var trackIds = request.TrackIds.Distinct().ToList();
         var existingTracks = await _context.Tracks
             .Where(t => trackIds.Contains(t.Id))
             .Select(t => t.Id)
             .ToListAsync();
-        
+
         if (existingTracks.Count != trackIds.Count)
         {
             var missingTracks = trackIds.Except(existingTracks).ToList();
@@ -242,14 +242,14 @@ public class QueueService : IQueueService
 
         // Replace queue with new tracks
         queue.SetTracks(trackIds, shuffle: false);
-        
+
         // Set start index if specified
         if (request.StartIndex > 0 && request.StartIndex < trackIds.Count)
         {
             queue.CurrentIndex = request.StartIndex;
             queue.CurrentTrackId = trackIds[request.StartIndex];
         }
-        
+
         // Set metadata if provided
         if (!string.IsNullOrEmpty(request.Source))
         {
@@ -258,25 +258,25 @@ public class QueueService : IQueueService
             queueState.Metadata["source"] = request.Source;
             queue.QueueState = queueState;
         }
-        
+
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
         _logger.LogInformation("Replaced queue with {Count} tracks for user {UserId}", trackIds.Count, userId);
-        
+
         return MapToDto(queue);
     }
 
     public async Task<QueueStateDto> UpdateQueueSettingsAsync(string userId, UpdateQueueRequest request)
     {
         var queue = await GetOrCreateQueueAsync(userId);
-        
+
         if (request.RepeatMode.HasValue)
         {
             queue.RepeatMode = request.RepeatMode.Value;
         }
-        
+
         if (request.IsShuffled.HasValue)
         {
             if (request.IsShuffled.Value != queue.IsShuffled)
@@ -289,17 +289,17 @@ public class QueueService : IQueueService
                     {
                         // Store original order
                         queueState.OriginalTrackIds = new List<string>(queueState.TrackIds);
-                        
+
                         // Create shuffled order (keeping current track in place)
                         var currentTrack = queue.CurrentTrackId;
                         var otherTracks = queueState.TrackIds.Where(t => t != currentTrack).ToList();
                         var shuffled = otherTracks.OrderBy(_ => Guid.NewGuid()).ToList();
-                        
+
                         if (!string.IsNullOrEmpty(currentTrack))
                         {
                             shuffled.Insert(queue.CurrentIndex, currentTrack);
                         }
-                        
+
                         queueState.ShuffledTrackIds = shuffled;
                         queueState.TrackIds = shuffled;
                         queue.QueueState = queueState;
@@ -314,7 +314,7 @@ public class QueueService : IQueueService
                         // Find current track in original order
                         var currentTrack = queue.CurrentTrackId;
                         queueState.TrackIds = new List<string>(queueState.OriginalTrackIds);
-                        
+
                         if (!string.IsNullOrEmpty(currentTrack))
                         {
                             queue.CurrentIndex = queueState.TrackIds.IndexOf(currentTrack);
@@ -323,16 +323,16 @@ public class QueueService : IQueueService
                                 queue.CurrentIndex = 0;
                             }
                         }
-                        
+
                         queueState.ShuffledTrackIds = null;
                         queue.QueueState = queueState;
                     }
                 }
-                
+
                 queue.IsShuffled = request.IsShuffled.Value;
             }
         }
-        
+
         if (request.CurrentIndex.HasValue)
         {
             var queueState = queue.QueueState;
@@ -347,13 +347,13 @@ public class QueueService : IQueueService
                 throw new ArgumentOutOfRangeException(nameof(request.CurrentIndex), "Current index is out of range");
             }
         }
-        
+
         queue.UpdateActivity();
         queue.Version++;
-        
+
         await _context.SaveChangesAsync();
         _logger.LogInformation("Updated queue settings for user {UserId}", userId);
-        
+
         return MapToDto(queue);
     }
 
@@ -361,7 +361,7 @@ public class QueueService : IQueueService
     {
         var queue = await _context.PlaybackQueues
             .FirstOrDefaultAsync(q => q.UserId == userId);
-        
+
         if (queue == null)
         {
             // Auto-create queue for user
@@ -370,13 +370,13 @@ public class QueueService : IQueueService
                 Id = Guid.NewGuid().ToString(),
                 UserId = userId
             };
-            
+
             _context.PlaybackQueues.Add(queue);
             await _context.SaveChangesAsync();
-            
+
             _logger.LogInformation("Auto-created queue for user {UserId}", userId);
         }
-        
+
         return queue;
     }
 
@@ -384,7 +384,7 @@ public class QueueService : IQueueService
     {
         var queueState = queue.QueueState;
         var source = queueState.Metadata?.GetValueOrDefault("source")?.ToString();
-        
+
         return new QueueStateDto
         {
             QueueId = queue.Id,

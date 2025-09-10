@@ -78,7 +78,7 @@ public class PlaylistTrackDtoTests
     public void PlaylistTrackDto_IncludesTrackInfoAndPlaylistInfo()
     {
         // This test verifies that the DTO combines track information with playlist-specific fields
-        
+
         // Arrange & Act
         var dto = new PlaylistTrackDto
         {
@@ -88,7 +88,7 @@ public class PlaylistTrackDtoTests
             ArtistName = "Artist Name",
             AlbumTitle = "Album Title",
             DurationMs = 180000,
-            
+
             // Playlist-specific information
             Position = 5,
             PositionFloat = 5.25m,
@@ -142,7 +142,7 @@ public class PlaylistTrackDtoTests
     public void PlaylistTrackDto_SupportsReorderingScenario()
     {
         // This test demonstrates how PositionFloat can be used for reordering
-        
+
         // Arrange - Create three tracks in order
         var track1 = new PlaylistTrackDto { TrackId = "1", Position = 0, PositionFloat = 1.0m };
         var track2 = new PlaylistTrackDto { TrackId = "2", Position = 1, PositionFloat = 2.0m };

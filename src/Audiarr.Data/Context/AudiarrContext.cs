@@ -85,20 +85,20 @@ public class AudiarrContext : DbContext
         modelBuilder.Entity<Playlist>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             // Indexes for performance
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.IsPublic);
             entity.HasIndex(e => e.LastModified);
             entity.HasIndex(e => new { e.UserId, e.IsPublic })
                 .HasDatabaseName("IX_Playlists_UserId_IsPublic");
-            
+
             // Property configurations
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.PlayCount).HasDefaultValue(0);
             entity.Property(e => e.TrackCount).HasDefaultValue(0);
-            
+
             // Configure TotalDuration as ticks for SQLite storage
             entity.Property(e => e.TotalDuration)
                 .HasConversion(
@@ -121,7 +121,7 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => new { e.PlaylistId, e.PositionFloat })
                 .HasDatabaseName("IX_PlaylistTracks_PlaylistId_PositionFloat");
             entity.HasIndex(e => e.AddedAt);
-            
+
             // Property configurations
             entity.Property(e => e.PositionFloat)
                 .HasPrecision(18, 6);
@@ -146,42 +146,42 @@ public class AudiarrContext : DbContext
         modelBuilder.Entity<PlaybackQueue>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             // Ensure one queue per user
             entity.HasIndex(e => e.UserId).IsUnique();
-            
+
             // Indexes for performance
             entity.HasIndex(e => e.LastActivity);
             entity.HasIndex(e => e.CurrentTrackId);
-            
+
             // Property configurations
             entity.Property(e => e.QueueStateJson)
                 .IsRequired()
                 .HasDefaultValue("{}")
                 .HasColumnType("TEXT");
-            
+
             entity.Property(e => e.RepeatMode)
                 .HasConversion<int>()
                 .HasDefaultValue(RepeatMode.None);
-            
+
             entity.Property(e => e.IsShuffled)
                 .HasDefaultValue(false);
-            
+
             entity.Property(e => e.CurrentIndex)
                 .HasDefaultValue(0);
-            
+
             entity.Property(e => e.Version)
                 .HasDefaultValue(1);
-            
+
             // Ignore the non-mapped QueueState property
             entity.Ignore(e => e.QueueState);
-            
+
             // Relationships
             entity.HasOne(e => e.User)
                 .WithOne()
                 .HasForeignKey<PlaybackQueue>(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             entity.HasOne(e => e.CurrentTrack)
                 .WithMany()
                 .HasForeignKey(e => e.CurrentTrackId)
@@ -211,12 +211,12 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => e.TargetUserId);
             entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Details).HasMaxLength(1000);
-            
+
             entity.HasOne(e => e.PerformedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.PerformedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
-                
+
             entity.HasOne(e => e.TargetUser)
                 .WithMany()
                 .HasForeignKey(e => e.TargetUserId)
