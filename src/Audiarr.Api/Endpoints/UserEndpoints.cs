@@ -124,7 +124,7 @@ public static class UserEndpoints
 
     private static async Task<Results<Created<CreateUserResponse>, BadRequest<ProblemDetails>, Conflict<ProblemDetails>>> CreateUser(
         IUserManagementService userService,
-        CreateUserRequest request,
+        [FromBody] CreateUserRequest request,
         ILogger<CreateUserRequest> logger)
     {
         // Validate username format (3-20 characters, alphanumeric + underscore)

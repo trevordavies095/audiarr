@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Audiarr.Data.Context;
 using Audiarr.Core.DTOs;
@@ -149,7 +150,7 @@ public static class PlaylistEndpoints
 
         // POST /api/v2/playlists - Create new playlist
         group.MapPost("/", async (
-            CreatePlaylistRequest request,
+            [FromBody] CreatePlaylistRequest request,
             ClaimsPrincipal user,
             AudiarrContext db) =>
         {
@@ -238,7 +239,7 @@ public static class PlaylistEndpoints
         // PUT /api/v2/playlists/{id} - Update playlist metadata
         group.MapPut("/{id}", async (
             string id,
-            UpdatePlaylistRequest request,
+            [FromBody] UpdatePlaylistRequest request,
             ClaimsPrincipal user,
             AudiarrContext db) =>
         {
@@ -381,7 +382,7 @@ public static class PlaylistEndpoints
         // POST /api/v2/playlists/{id}/tracks - Add tracks to playlist
         group.MapPost("/{id}/tracks", async (
             string id,
-            AddTracksRequest request,
+            [FromBody] AddTracksRequest request,
             ClaimsPrincipal user,
             AudiarrContext db) =>
         {
@@ -515,7 +516,7 @@ public static class PlaylistEndpoints
         // DELETE /api/v2/playlists/{id}/tracks - Remove tracks from playlist
         group.MapDelete("/{id}/tracks", async (
             string id,
-            RemoveTracksRequest request,
+            [FromBody] RemoveTracksRequest request,
             ClaimsPrincipal user,
             AudiarrContext db) =>
         {
@@ -590,7 +591,7 @@ public static class PlaylistEndpoints
         // PUT /api/v2/playlists/{id}/tracks/reorder - Reorder tracks in playlist
         group.MapPut("/{id}/tracks/reorder", async (
             string id,
-            ReorderTracksRequest request,
+            [FromBody] ReorderTracksRequest request,
             ClaimsPrincipal user,
             AudiarrContext db) =>
         {
