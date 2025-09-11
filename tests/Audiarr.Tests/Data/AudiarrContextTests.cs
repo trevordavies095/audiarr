@@ -134,13 +134,10 @@ public class AudiarrContextTests : IDisposable
 
         Assert.NotNull(entityType);
 
-        // Check PositionFloat precision
+        // Check PositionFloat is double type (no precision needed)
         var positionFloatProperty = entityType.FindProperty("PositionFloat");
         Assert.NotNull(positionFloatProperty);
-        var precision = positionFloatProperty.GetPrecision();
-        var scale = positionFloatProperty.GetScale();
-        Assert.Equal(18, precision);
-        Assert.Equal(6, scale);
+        Assert.Equal(typeof(double), positionFloatProperty.ClrType);
 
         // Check AddedBy max length
         var addedByProperty = entityType.FindProperty("AddedBy");

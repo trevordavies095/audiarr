@@ -1204,7 +1204,7 @@ Track information within a playlist context.
 | year | integer | Release year |
 | filePath | string | File system path to audio file |
 | position | integer | Integer position in playlist (0-based) |
-| positionFloat | decimal | Decimal position for precise ordering |
+| positionFloat | double | Floating-point position for precise ordering |
 | addedAt | string | ISO 8601 timestamp when track was added |
 | addedBy | string | Username who added the track |
 
@@ -1303,7 +1303,7 @@ Individual track reorder specification.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | trackId | string | Yes | Track ID to reorder |
-| newPosition | decimal | Yes | New decimal position in playlist |
+| newPosition | double | Yes | New floating-point position in playlist |
 
 ### UpdatePlaylistImageRequest
 Request to update playlist cover image.
