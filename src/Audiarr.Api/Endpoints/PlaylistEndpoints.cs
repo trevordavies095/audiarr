@@ -671,7 +671,6 @@ public static class PlaylistEndpoints
                 return Results.Unauthorized();
 
             var playlist = await db.Playlists
-                .Include(p => p.PlaylistTracks)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (playlist == null)
@@ -681,39 +680,48 @@ public static class PlaylistEndpoints
             if (playlist.UserId != userId)
                 return Results.Forbid();
 
+            // Load all playlist tracks separately to ensure proper tracking
+            var playlistTracks = await db.PlaylistTracks
+                .Where(pt => pt.PlaylistId == id)
+                .ToListAsync();
+
             // Validate all track IDs exist in the playlist
-            var playlistTrackIds = playlist.PlaylistTracks.Select(pt => pt.TrackId).ToHashSet();
+            var playlistTrackIds = playlistTracks.Select(pt => pt.TrackId).ToHashSet();
             var requestTrackIds = request.Tracks.Select(t => t.TrackId).ToHashSet();
 
             if (!requestTrackIds.IsSubsetOf(playlistTrackIds))
                 return Results.BadRequest(new { error = "One or more tracks not found in playlist" });
 
-            // Update positions for specified tracks
-            var tracksToUpdate = playlist.PlaylistTracks
-                .Where(pt => requestTrackIds.Contains(pt.TrackId))
-                .ToDictionary(pt => pt.TrackId);
+            // Create a dictionary for quick lookup
+            var trackLookup = playlistTracks.ToDictionary(pt => pt.TrackId);
 
+            // Update positions for specified tracks
             foreach (var reorderItem in request.Tracks)
             {
-                if (tracksToUpdate.TryGetValue(reorderItem.TrackId, out var track))
+                if (trackLookup.TryGetValue(reorderItem.TrackId, out var track))
                 {
                     track.PositionFloat = reorderItem.NewPosition;
+                    // Explicitly mark the entity as modified
+                    db.Entry(track).State = EntityState.Modified;
                 }
             }
 
             // Recalculate integer positions based on new float positions
-            var allTracksOrdered = playlist.PlaylistTracks
+            var allTracksOrdered = playlistTracks
                 .OrderBy(pt => pt.PositionFloat)
                 .ToList();
 
             for (int i = 0; i < allTracksOrdered.Count; i++)
             {
                 allTracksOrdered[i].Position = i;
+                // Explicitly mark each entity as modified
+                db.Entry(allTracksOrdered[i]).State = EntityState.Modified;
             }
 
             // Update playlist metadata
             playlist.LastModified = DateTime.UtcNow;
             playlist.UpdatedAt = DateTime.UtcNow;
+            db.Entry(playlist).State = EntityState.Modified;
 
             await db.SaveChangesAsync();
 
