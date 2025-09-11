@@ -17,7 +17,7 @@ public class PlaylistTrackDto
 
     // Playlist-specific fields
     public int Position { get; set; }
-    public decimal PositionFloat { get; set; }
+    public double PositionFloat { get; set; }
     public DateTime AddedAt { get; set; }
     public string? AddedBy { get; set; }
 }

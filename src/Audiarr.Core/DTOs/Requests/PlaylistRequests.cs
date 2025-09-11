@@ -57,7 +57,7 @@ public record TrackReorderItem
     public required string TrackId { get; init; }
 
     [Required]
-    public required decimal NewPosition { get; init; }
+    public required double NewPosition { get; init; }
 }
 
 public record UpdatePlaylistImageRequest

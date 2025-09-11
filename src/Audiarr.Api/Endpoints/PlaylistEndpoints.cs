@@ -180,7 +180,7 @@ public static class PlaylistEndpoints
                     .Where(t => request.InitialTrackIds.Contains(t.Id))
                     .ToListAsync();
 
-                decimal position = 0;
+                double position = 0;
                 foreach (var trackId in request.InitialTrackIds)
                 {
                     if (tracks.Any(t => t.Id == trackId))
@@ -414,7 +414,7 @@ public static class PlaylistEndpoints
             var existingTrackIds = playlist.PlaylistTracks.Select(pt => pt.TrackId).ToHashSet();
 
             // Determine starting position
-            decimal startPosition;
+            double startPosition;
             if (request.Position.HasValue && request.Position.Value >= 0)
             {
                 // Insert at specific position

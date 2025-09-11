@@ -123,8 +123,7 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => e.AddedAt);
 
             // Property configurations
-            entity.Property(e => e.PositionFloat)
-                .HasPrecision(18, 6);
+            // PositionFloat is now double, no precision configuration needed
             entity.Property(e => e.AddedBy)
                 .HasMaxLength(50);
             entity.Property(e => e.AddedAt)

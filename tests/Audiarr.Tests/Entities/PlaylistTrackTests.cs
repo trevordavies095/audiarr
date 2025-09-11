@@ -19,7 +19,7 @@ public class PlaylistTrackTests
         Assert.Equal("playlist123", playlistTrack.PlaylistId);
         Assert.Equal("track456", playlistTrack.TrackId);
         Assert.Equal(0, playlistTrack.Position);
-        Assert.Equal(0m, playlistTrack.PositionFloat);
+        Assert.Equal(0, playlistTrack.PositionFloat);
         Assert.Null(playlistTrack.AddedBy);
 
         // AddedAt should be close to current UTC time (within 1 second)
@@ -39,8 +39,8 @@ public class PlaylistTrackTests
         };
 
         // Assert
-        Assert.Equal(0m, playlistTrack.PositionFloat);
-        Assert.IsType<decimal>(playlistTrack.PositionFloat);
+        Assert.Equal(0, playlistTrack.PositionFloat);
+        Assert.IsType<double>(playlistTrack.PositionFloat);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class PlaylistTrackTests
 
         // Act
         playlistTrack.Position = 5;
-        playlistTrack.PositionFloat = 5.5m;
+        playlistTrack.PositionFloat = 5.5;
         playlistTrack.AddedAt = testDate;
         playlistTrack.AddedBy = "testuser";
 
@@ -87,7 +87,7 @@ public class PlaylistTrackTests
         Assert.Equal("playlist123", playlistTrack.PlaylistId);
         Assert.Equal("track456", playlistTrack.TrackId);
         Assert.Equal(5, playlistTrack.Position);
-        Assert.Equal(5.5m, playlistTrack.PositionFloat);
+        Assert.Equal(5.5, playlistTrack.PositionFloat);
         Assert.Equal(testDate, playlistTrack.AddedAt);
         Assert.Equal("testuser", playlistTrack.AddedBy);
     }
@@ -99,7 +99,7 @@ public class PlaylistTrackTests
     [InlineData(2, 1.75)]
     [InlineData(100, 99.999)]
     [InlineData(int.MaxValue, 2147483647.5)]
-    public void PlaylistTrack_PositionFields_CanHoldDifferentValues(int position, decimal positionFloat)
+    public void PlaylistTrack_PositionFields_CanHoldDifferentValues(int position, double positionFloat)
     {
         // Arrange
         var playlistTrack = new PlaylistTrack
@@ -127,7 +127,7 @@ public class PlaylistTrackTests
             PlaylistId = "playlist123",
             TrackId = "track1",
             Position = 1,
-            PositionFloat = 1.0m
+            PositionFloat = 1.0
         };
 
         var track2 = new PlaylistTrack
@@ -135,7 +135,7 @@ public class PlaylistTrackTests
             PlaylistId = "playlist123",
             TrackId = "track2",
             Position = 2,
-            PositionFloat = 2.0m
+            PositionFloat = 2.0
         };
 
         // Act - Insert a track between track1 and track2
@@ -144,7 +144,7 @@ public class PlaylistTrackTests
             PlaylistId = "playlist123",
             TrackId = "track3",
             Position = 1, // Could still be 1, but...
-            PositionFloat = 1.5m // This allows precise positioning
+            PositionFloat = 1.5 // This allows precise positioning
         };
 
         // Assert - The inserted track's PositionFloat is between the other two
@@ -215,11 +215,11 @@ public class PlaylistTrackTests
         // without needing to reindex
 
         // Arrange - Start with two tracks
-        decimal position1 = 1.0m;
-        decimal position2 = 2.0m;
+        double position1 = 1.0;
+        double position2 = 2.0;
 
         // Act - Simulate multiple insertions between them
-        var positions = new List<decimal>();
+        var positions = new List<double>();
         for (int i = 0; i < 10; i++)
         {
             var newPosition = (position1 + position2) / 2;
@@ -229,7 +229,7 @@ public class PlaylistTrackTests
 
         // Assert - All positions are unique and between 1.0 and 2.0
         Assert.Equal(10, positions.Count);
-        Assert.All(positions, p => Assert.True(p > 1.0m && p < 2.0m));
+        Assert.All(positions, p => Assert.True(p > 1.0 && p < 2.0));
         Assert.Equal(positions.Count, positions.Distinct().Count()); // All unique
 
         // Verify they're in descending order (each new one is closer to 1.0)
