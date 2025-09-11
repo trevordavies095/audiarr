@@ -112,6 +112,62 @@ Content-Type: application/json
 }
 ```
 
+#### 5. Get Current User
+```http
+GET /api/v2/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "your_username",
+  "email": "user@example.com",
+  "role": "User",
+  "lastLogin": "2024-01-15T09:30:00Z"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: Invalid or missing access token
+- `404 Not Found`: User account not found (rare edge case)
+
+#### 6. Change Password
+```http
+POST /api/v2/auth/change-password
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "currentPassword": "current_password",
+  "newPassword": "new_secure_password"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Password changed successfully. Please login again."
+}
+```
+
+**Password Requirements:**
+- Minimum 8 characters
+- Must contain at least one uppercase letter
+- Must contain at least one lowercase letter  
+- Must contain at least one number
+- Must contain at least one special character
+
+**Error Responses:**
+- `400 Bad Request`: Current password is incorrect or new password doesn't meet requirements
+- `401 Unauthorized`: Invalid or missing access token
+
+**Important Security Notes:**
+- Changing password revokes all existing sessions for the user
+- User must re-authenticate after password change
+- All refresh tokens for the user are invalidated
+
 ### Token Storage Best Practices
 - **Access Token**: Store in memory or secure temporary storage
 - **Refresh Token**: Store in secure persistent storage (Keychain on iOS, Keystore on Android)
@@ -327,6 +383,68 @@ GET /api/v2/tracks/{id}/play
 
 Returns track info with navigation links (next/previous).
 
+#### Get Playlist Play Context
+```http
+GET /api/v2/playlists/{id}/play
+Authorization: Bearer <token>
+```
+
+Returns playlist information with ordered tracks for continuous playback.
+
+**Response:**
+```json
+{
+  "playlist": {
+    "id": "playlist_id",
+    "name": "My Awesome Playlist", 
+    "description": "A collection of great songs",
+    "trackCount": 12
+  },
+  "tracks": [
+    {
+      "id": "track_1",
+      "title": "Song Title",
+      "artistName": "Artist Name",
+      "albumTitle": "Album Title",
+      "trackNumber": 3,
+      "durationMs": 240000,
+      "streamUrl": "/api/v2/tracks/track_1/stream",
+      "position": 0,
+      "nextTrackId": "track_2",
+      "previousTrackId": null
+    },
+    {
+      "id": "track_2", 
+      "title": "Second Song",
+      "artistName": "Another Artist",
+      "albumTitle": "Another Album",
+      "trackNumber": 1,
+      "durationMs": 195000,
+      "streamUrl": "/api/v2/tracks/track_2/stream",
+      "position": 1,
+      "nextTrackId": "track_3",
+      "previousTrackId": "track_1"
+    }
+  ],
+  "totalDurationMs": 2880000
+}
+```
+
+**Key Features:**
+- Tracks are ordered by their position in the playlist
+- Each track includes a `streamUrl` for immediate playback
+- Navigation links (`nextTrackId`, `previousTrackId`) enable continuous playback
+- Total duration is calculated for the entire playlist
+
+**Error Responses:**
+- `401 Unauthorized`: Missing or invalid access token
+- `404 Not Found`: Playlist not found or user doesn't have access
+
+**Use Cases:**
+- Initialize playlist playback in music players
+- Build continuous playback queue from playlist
+- Display playlist overview with track navigation
+
 ## User Management
 
 All user management endpoints require admin role authorization.
@@ -440,6 +558,772 @@ Returns `true` if username is available.
 `GET /api/v2/users/check-email/{email}`
 
 Returns `true` if email is available.
+
+### Playlists
+
+Playlists allow users to create custom collections of tracks. All playlist endpoints require authentication.
+
+#### Get User's Playlists
+```http
+GET /api/v2/playlists?page=1&limit=50&includePublic=false
+Authorization: Bearer <token>
+```
+
+**Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (1-100, default: 50)
+- `includePublic` (optional): Include public playlists from other users (default: false)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "playlist_id",
+      "name": "My Playlist",
+      "description": "A collection of my favorite songs",
+      "userId": "user_id",
+      "username": "john_doe",
+      "isPublic": false,
+      "imagePath": null,
+      "trackCount": 12,
+      "totalDuration": "00:45:23",
+      "createdAt": "2024-01-01T12:00:00Z",
+      "updatedAt": "2024-01-15T14:30:00Z",
+      "lastModified": "2024-01-15T14:30:00Z",
+      "playCount": 5
+    }
+  ],
+  "page": 1,
+  "limit": 50,
+  "total": 3,
+  "totalPages": 1
+}
+```
+
+#### Get Playlist Details
+```http
+GET /api/v2/playlists/{id}
+Authorization: Bearer <token>
+```
+
+Returns a playlist with all tracks included. Users can view their own playlists or public playlists from other users.
+
+**Response:**
+```json
+{
+  "id": "playlist_id",
+  "name": "My Playlist",
+  "description": "A collection of my favorite songs",
+  "userId": "user_id",
+  "username": "john_doe",
+  "isPublic": false,
+  "imagePath": null,
+  "trackCount": 2,
+  "totalDuration": "00:07:45",
+  "createdAt": "2024-01-01T12:00:00Z",
+  "updatedAt": "2024-01-15T14:30:00Z",
+  "lastModified": "2024-01-15T14:30:00Z",
+  "playCount": 5,
+  "tracks": [
+    {
+      "trackId": "track_1",
+      "title": "Song Title",
+      "artistId": "artist_1",
+      "artistName": "Artist Name",
+      "albumId": "album_1",
+      "albumTitle": "Album Title",
+      "trackNumber": 1,
+      "discNumber": 1,
+      "durationMs": 240000,
+      "genre": "Rock",
+      "year": 2023,
+      "filePath": "/music/artist/album/track.mp3",
+      "position": 0,
+      "positionFloat": 0.0,
+      "addedAt": "2024-01-01T12:00:00Z",
+      "addedBy": "john_doe"
+    }
+  ]
+}
+```
+
+#### Create New Playlist
+```http
+POST /api/v2/playlists
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "New Playlist",
+  "description": "Optional description",
+  "isPublic": false,
+  "initialTrackIds": ["track_1", "track_2"]
+}
+```
+
+**Request Body:**
+- `name` (required): Playlist name (1-255 characters)
+- `description` (optional): Playlist description (max 1000 characters)
+- `isPublic` (optional): Whether playlist is public (default: false)
+- `initialTrackIds` (optional): Array of track IDs to add initially
+
+**Response:** Returns the created playlist (same structure as `PlaylistDto`)
+
+#### Update Playlist Metadata
+```http
+PUT /api/v2/playlists/{id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Updated Playlist Name",
+  "description": "Updated description",
+  "isPublic": true
+}
+```
+
+Only the playlist owner can update their playlist metadata.
+
+#### Delete Playlist
+```http
+DELETE /api/v2/playlists/{id}
+Authorization: Bearer <token>
+```
+
+Permanently deletes a playlist and all track associations. Only the playlist owner can delete their playlist.
+
+**Response:**
+```json
+{
+  "message": "Playlist deleted successfully"
+}
+```
+
+#### Get Public Playlists
+```http
+GET /api/v2/playlists/public?page=1&limit=50
+Authorization: Bearer <token>
+```
+
+Returns all public playlists, ordered by play count and last modified date.
+
+#### Add Tracks to Playlist
+```http
+POST /api/v2/playlists/{id}/tracks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "trackIds": ["track_1", "track_2", "track_3"],
+  "position": 5
+}
+```
+
+**Request Body:**
+- `trackIds` (required): Array of track IDs to add
+- `position` (optional): Position to insert tracks (0-based index, defaults to end)
+
+**Response:**
+```json
+{
+  "message": "Added 3 track(s) to playlist",
+  "addedCount": 3,
+  "totalTracks": 8
+}
+```
+
+#### Remove Tracks from Playlist
+```http
+DELETE /api/v2/playlists/{id}/tracks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "trackIds": ["track_1", "track_2"]
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Removed 2 track(s) from playlist",
+  "removedCount": 2,
+  "remainingTracks": 6
+}
+```
+
+#### Reorder Playlist Tracks
+```http
+PUT /api/v2/playlists/{id}/tracks/reorder
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "tracks": [
+    {
+      "trackId": "track_1",
+      "newPosition": 2.5
+    },
+    {
+      "trackId": "track_2", 
+      "newPosition": 1.0
+    }
+  ]
+}
+```
+
+Uses decimal positioning to avoid conflicts when reordering multiple tracks simultaneously.
+
+**Response:**
+```json
+{
+  "message": "Playlist tracks reordered successfully",
+  "reorderedCount": 2
+}
+```
+
+### Queue Management
+
+Queue management allows users to control their playback queue with support for shuffle, repeat modes, and queue manipulation. All queue endpoints require authentication.
+
+#### Get Queue State
+```http
+GET /api/v2/queue
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "queueId": "queue_123",
+  "userId": "user_456",
+  "trackIds": ["track1", "track2", "track3"],
+  "currentTrackId": "track2",
+  "currentIndex": 1,
+  "repeatMode": 0,
+  "isShuffled": false,
+  "totalTracks": 3,
+  "queueSource": "album:album_id",
+  "lastActivity": "2024-01-15T10:30:00Z",
+  "version": 5
+}
+```
+
+**Repeat Modes:**
+- `0`: None - Play queue once
+- `1`: One - Repeat current track
+- `2`: All - Repeat entire queue
+
+#### Add Tracks to Queue
+```http
+POST /api/v2/queue/tracks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "trackIds": ["track4", "track5"],
+  "source": "search:rock music",
+  "playNext": false
+}
+```
+
+**Parameters:**
+- `trackIds`: Array of track IDs to add (1-100 tracks)
+- `source`: Optional source identifier
+- `playNext`: If true, adds tracks after current track
+
+**Response:**
+```json
+{
+  "queueId": "queue_123",
+  "userId": "user_456",
+  "trackIds": ["track1", "track2", "track3", "track4", "track5"],
+  "currentTrackId": "track2",
+  "currentIndex": 1,
+  "repeatMode": 0,
+  "isShuffled": false,
+  "totalTracks": 5,
+  "queueSource": "mixed",
+  "lastActivity": "2024-01-15T10:35:00Z",
+  "version": 6
+}
+```
+
+#### Remove Track from Queue
+```http
+DELETE /api/v2/queue/tracks/{index}
+Authorization: Bearer <token>
+```
+
+**Example:**
+```http
+DELETE /api/v2/queue/tracks/2
+Authorization: Bearer <token>
+```
+
+**Response:** Returns updated queue state
+
+#### Clear Queue
+```http
+DELETE /api/v2/queue/clear?keepCurrentTrack=false
+Authorization: Bearer <token>
+```
+
+**Parameters:**
+- `keepCurrentTrack`: If true, only removes other tracks
+
+**Response:** Returns updated queue state
+
+#### Reorder Queue
+```http
+PUT /api/v2/queue/reorder
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "trackId": "track3",
+  "newIndex": 0
+}
+```
+
+**Response:** Returns updated queue state
+
+#### Update Queue Settings
+```http
+PUT /api/v2/queue/settings
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "repeatMode": 2,
+  "isShuffled": true,
+  "currentIndex": 0
+}
+```
+
+**Parameters:**
+- `repeatMode`: Optional repeat mode (0=None, 1=One, 2=All)
+- `isShuffled`: Optional shuffle state
+- `currentIndex`: Optional current track index
+
+**Response:** Returns updated queue state
+
+#### Replace Entire Queue
+```http
+POST /api/v2/queue/replace
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "trackIds": ["new_track1", "new_track2"],
+  "startIndex": 0,
+  "source": "album:new_album"
+}
+```
+
+**Parameters:**
+- `trackIds`: Array of track IDs (1-1000 tracks)
+- `startIndex`: Index to start playing from (default: 0)
+- `source`: Optional source identifier
+
+**Response:** Returns updated queue state
+
+#### Skip to Next Track
+```http
+POST /api/v2/queue/next
+Authorization: Bearer <token>
+```
+
+**Response:** Returns updated queue state
+
+#### Go to Previous Track
+```http
+POST /api/v2/queue/previous
+Authorization: Bearer <token>
+```
+
+**Response:** Returns updated queue state
+
+#### Jump to Specific Position
+```http
+PUT /api/v2/queue/position/{index}
+Authorization: Bearer <token>
+```
+
+**Example:**
+```http
+PUT /api/v2/queue/position/3
+Authorization: Bearer <token>
+```
+
+**Response:** Returns updated queue state
+
+#### Common Error Responses
+
+**400 Bad Request - Invalid Index:**
+```json
+{
+  "title": "Invalid index",
+  "detail": "Index 5 is out of range for queue with 3 tracks",
+  "status": 400
+}
+```
+
+**404 Not Found - Empty Queue:**
+```json
+{
+  "title": "Queue empty",
+  "detail": "Cannot perform operation on empty queue",
+  "status": 404
+}
+```
+
+### Library Scanner
+
+The Library Scanner manages scanning and indexing of audio files in your music library. It supports both full library scans and single file operations, with real-time progress updates via SignalR.
+
+#### Queue Library Scan
+```http
+POST /api/v2/scanner/scan
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "libraryPath": "/path/to/music/library",
+  "requestId": "scan_12345",
+  "requestedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+**Parameters:**
+- `libraryPath`: Path to the directory containing audio files
+- `requestId`: Optional unique identifier (auto-generated if not provided)
+- `requestedAt`: Optional timestamp (defaults to current time)
+
+**Response (202 Accepted):**
+```json
+{
+  "message": "Scan request queued",
+  "requestId": "scan_12345",
+  "path": "/path/to/music/library"
+}
+```
+
+The response includes a `Location` header pointing to: `/api/v2/scanner/status/{requestId}`
+
+#### Scan Single File
+```http
+POST /api/v2/scanner/scan/single?filePath=/path/to/song.mp3
+Authorization: Bearer <token>
+```
+
+**Parameters:**
+- `filePath`: Full path to the audio file to scan
+
+**Response:**
+```json
+{
+  "totalFiles": 1,
+  "processedFiles": 1,
+  "newTracks": 1,
+  "updatedTracks": 0,
+  "errors": 0,
+  "errorMessages": [],
+  "startTime": "2024-01-15T10:30:00Z",
+  "endTime": "2024-01-15T10:30:05Z",
+  "duration": "00:00:05"
+}
+```
+
+#### Get Supported Audio Formats
+```http
+GET /api/v2/scanner/supported-formats
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "formats": [
+    ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus",
+    ".wav", ".wma", ".alac", ".ape", ".wv", ".mka"
+  ]
+}
+```
+
+#### Real-time Scan Progress (SignalR)
+
+Connect to the scan hub at `/hubs/scan` to receive real-time progress updates:
+
+**Connection Example:**
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("http://your-server:8080/hubs/scan", {
+        accessTokenFactory: () => localStorage.getItem("accessToken")
+    })
+    .build();
+
+// Listen for scan progress
+connection.on("ScanProgress", (progress) => {
+    console.log(`Progress: ${progress.processed}/${progress.total} (${progress.percentComplete}%)`);
+    console.log(`Current: ${progress.message}`);
+});
+
+// Listen for scan completion
+connection.on("ScanComplete", (result) => {
+    console.log(`Scan completed: ${result.newTracks} new, ${result.updatedTracks} updated`);
+    console.log(`Errors: ${result.errors}, Total files: ${result.totalFiles}`);
+});
+
+// Listen for scan errors
+connection.on("ScanError", (error) => {
+    console.error("Scan error:", error);
+});
+
+await connection.start();
+```
+
+**Progress Event Format:**
+```json
+{
+  "processed": 150,
+  "total": 500,
+  "message": "Processing: /music/artist/album/track.mp3",
+  "percentComplete": 30.0
+}
+```
+
+**Completion Event Format:**
+```json
+{
+  "totalFiles": 500,
+  "newTracks": 45,
+  "updatedTracks": 12,
+  "errors": 3,
+  "completedAt": "2024-01-15T10:45:00Z"
+}
+```
+
+#### Common Error Responses
+
+**404 Not Found - File doesn't exist:**
+```json
+{
+  "error": "File not found"
+}
+```
+
+**400 Bad Request - Invalid file type:**
+```json
+{
+  "error": "Not an audio file"
+}
+```
+
+**500 Internal Server Error - Scan failed to queue:**
+```json
+{
+  "title": "Internal Server Error",
+  "detail": "Failed to queue scan request",
+  "status": 500
+}
+```
+
+#### Best Practices
+
+1. **Progress Monitoring**: Always connect to SignalR before starting a scan to receive progress updates
+2. **Path Validation**: Ensure library paths exist and are accessible before scanning
+3. **Format Checking**: Use the supported formats endpoint to validate files before single file scans
+4. **Error Handling**: Monitor for scan errors and handle failed file processing gracefully
+5. **Resource Management**: Avoid running multiple concurrent full library scans
+
+### Diagnostics
+
+The Diagnostics API provides database health monitoring and data quality assessment tools. These endpoints help administrators understand the current state of their music library and identify potential issues.
+
+**Important**: This endpoint is not protected by authentication and should be restricted to admin users in production environments.
+
+#### Database Data Check
+```http
+GET /api/v2/diagnostic/data-check
+Accept: application/json
+```
+
+Provides comprehensive database diagnostics including total counts, duplicate detection, and sample data for quality assessment.
+
+**Response:**
+```json
+{
+  "totalCounts": {
+    "artistCount": 156,
+    "albumCount": 423,
+    "trackCount": 2847
+  },
+  "duplicateArtists": [
+    {
+      "name": "The Beatles",
+      "count": 2,
+      "ids": [45, 127]
+    }
+  ],
+  "duplicateAlbums": [
+    {
+      "title": "Abbey Road",
+      "artistId": 45,
+      "count": 2,
+      "ids": [89, 156]
+    }
+  ],
+  "sampleArtists": [
+    {
+      "id": 1,
+      "name": "The Beatles",
+      "albumCount": 13,
+      "trackCount": 213
+    },
+    {
+      "id": 2,
+      "name": "Pink Floyd",
+      "albumCount": 15,
+      "trackCount": 147
+    }
+  ]
+}
+```
+
+**Use Cases:**
+- **Database Health Monitoring**: Regular checks of library size and growth
+- **Duplicate Detection**: Identify artists and albums that need cleanup
+- **Data Quality Assessment**: Verify library integrity after imports
+- **Performance Planning**: Understand database size for capacity planning
+- **Troubleshooting**: Diagnose data inconsistencies and import issues
+
+**Best Practices:**
+1. **Regular Monitoring**: Check diagnostics after bulk imports or library changes
+2. **Duplicate Management**: Use duplicate information to plan cleanup operations
+3. **Performance Awareness**: Monitor total counts for performance impact assessment
+4. **Data Validation**: Verify sample data matches expected library content
+
+### Data Cleanup
+
+The Data Cleanup API provides tools for maintaining database integrity by identifying and merging duplicate entries. These operations help optimize storage and resolve data inconsistencies that may occur over time.
+
+**Important**: These endpoints are not protected by authentication and should be used with caution in production environments.
+
+#### Merge Duplicate Artists
+```http
+POST /api/v2/cleanup/merge-duplicate-artists
+Content-Type: application/json
+```
+
+Identifies artists with identical names and merges them into single entries. The first artist found is kept as the primary record, and all tracks and albums are reassigned to it.
+
+**Response:**
+```json
+{
+  "message": "Merged 5 duplicate artists",
+  "duplicateGroupsFound": 3
+}
+```
+
+**Process:**
+1. Groups artists by exact name match
+2. Keeps the first artist in each group as primary
+3. Updates all tracks to reference the primary artist
+4. Updates all albums to reference the primary artist
+5. Removes duplicate artist records
+
+#### Merge Duplicate Albums
+```http
+POST /api/v2/cleanup/merge-duplicate-albums
+Content-Type: application/json
+```
+
+Identifies albums with identical titles and artists, then merges them. Preserves cover art by preferring albums that have artwork.
+
+**Response:**
+```json
+{
+  "message": "Merged 8 duplicate albums",
+  "duplicateGroupsFound": 4
+}
+```
+
+**Process:**
+1. Groups albums by title and artist ID
+2. Keeps the first album as primary
+3. If primary album lacks cover art, copies from duplicate with artwork
+4. Updates all tracks to reference the primary album
+5. Removes duplicate album records
+
+#### Clean All Data
+```http
+POST /api/v2/cleanup/clean-all
+Content-Type: application/json
+```
+
+Performs a comprehensive cleanup by running both artist and album deduplication in sequence.
+
+**Response:**
+```json
+{
+  "message": "Database cleanup completed",
+  "artistsMerged": 5,
+  "albumsMerged": 8,
+  "duplicateArtistGroupsFound": 3,
+  "duplicateAlbumGroupsFound": 4
+}
+```
+
+**Process:**
+1. First merges duplicate artists (same as individual operation)
+2. Then merges duplicate albums (same as individual operation)
+3. Returns combined statistics for both operations
+
+#### Common Use Cases
+
+**Regular Maintenance:**
+```bash
+# Weekly cleanup to maintain data quality
+curl -X POST http://localhost:8080/api/v2/cleanup/clean-all
+```
+
+**Targeted Cleanup:**
+```bash
+# Only merge duplicate artists
+curl -X POST http://localhost:8080/api/v2/cleanup/merge-duplicate-artists
+
+# Only merge duplicate albums
+curl -X POST http://localhost:8080/api/v2/cleanup/merge-duplicate-albums
+```
+
+#### Best Practices
+
+1. **Backup First**: Always backup your database before running cleanup operations
+2. **Test Environment**: Run cleanup operations in a test environment first
+3. **Off-Peak Hours**: Execute during low-usage periods to minimize impact
+4. **Monitor Results**: Review the response to understand what was merged
+5. **Sequential Operations**: Use individual endpoints for fine-grained control
+
+#### Important Considerations
+
+- **Data Loss Prevention**: The cleanup process preserves all track and album associations
+- **Cover Art Preservation**: Album merging intelligently preserves artwork when possible
+- **Irreversible Operations**: Cleanup operations cannot be undone automatically
+- **Performance Impact**: Large libraries may experience temporary slowdowns during cleanup
+- **No Authentication**: These endpoints are currently unprotected - implement access controls as needed
+
+#### Error Responses
+
+**500 Internal Server Error - Database Operation Failed:**
+```json
+{
+  "title": "Internal Server Error",
+  "detail": "Database operation failed during cleanup",
+  "status": 500
+}
+```
 
 ## WebSocket/SignalR
 
