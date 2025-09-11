@@ -16,6 +16,9 @@ Create a new environment with these variables:
 - `trackId`: (leave empty, will be set by requests)
 - `albumId`: (leave empty, will be set by requests)
 - `artistId`: (leave empty, will be set by requests)
+- `playlistId`: (leave empty, will be set by requests)
+- `queueId`: (leave empty, will be set by requests)
+- `scanRequestId`: (leave empty, will be set by requests)
 
 ## Collection JSON
 
@@ -143,6 +146,57 @@ Create a new environment with these variables:
               "raw": "{{baseUrl}}/api/v2/auth/logout",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v2", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Password changed successfully:', response.message);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"admin\",\n  \"newPassword\": \"NewSecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "change-password"]
             }
           }
         }
@@ -513,6 +567,683 @@ Create a new environment with these variables:
           }
         }
       ]
+    },
+    {
+      "name": "Playlists",
+      "item": [
+        {
+          "name": "Get User Playlists",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.length > 0) {",
+                  "        pm.environment.set('playlistId', response.data[0].id);",
+                  "        console.log('Saved playlist ID:', response.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "includePublic", "value": "false" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Playlist Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Playlist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('playlistId', response.id);",
+                  "    console.log('Created playlist ID:', response.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Playlist\",\n  \"description\": \"Created via Postman\",\n  \"isPublic\": false,\n  \"initialTrackIds\": [\"{{trackId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists"]
+            }
+          }
+        },
+        {
+          "name": "Update Playlist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test Playlist\",\n  \"description\": \"Updated via Postman\",\n  \"isPublic\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Add Tracks to Playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackIds\": [\"{{trackId}}\"],\n  \"position\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}/tracks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}", "tracks"]
+            }
+          }
+        },
+        {
+          "name": "Remove Tracks from Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackIds\": [\"{{trackId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}/tracks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}", "tracks"]
+            }
+          }
+        },
+        {
+          "name": "Reorder Playlist Tracks",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tracks\": [\n    {\n      \"trackId\": \"{{trackId}}\",\n      \"newPosition\": 1.5\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}/tracks/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}", "tracks", "reorder"]
+            }
+          }
+        },
+        {
+          "name": "Get Public Playlists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/public?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "public"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Playlist Play Context",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Playlist:', response.playlist.name);",
+                  "    console.log('Track count:', response.tracks.length);",
+                  "    console.log('Total duration (ms):', response.totalDurationMs);",
+                  "    ",
+                  "    // Validate response structure",
+                  "    pm.test('Response has playlist object', function () {",
+                  "        pm.expect(response).to.have.property('playlist');",
+                  "        pm.expect(response.playlist).to.have.property('id');",
+                  "        pm.expect(response.playlist).to.have.property('name');",
+                  "    });",
+                  "    ",
+                  "    pm.test('Response has tracks array', function () {",
+                  "        pm.expect(response).to.have.property('tracks');",
+                  "        pm.expect(response.tracks).to.be.an('array');",
+                  "    });",
+                  "    ",
+                  "    if (response.tracks.length > 0) {",
+                  "        pm.test('First track has required fields', function () {",
+                  "            const track = response.tracks[0];",
+                  "            pm.expect(track).to.have.property('id');",
+                  "            pm.expect(track).to.have.property('streamUrl');",
+                  "            pm.expect(track).to.have.property('position');",
+                  "        });",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/playlists/{{playlistId}}/play",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "playlists", "{{playlistId}}", "play"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queue",
+      "item": [
+        {
+          "name": "Get Queue State",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('queueId', response.queueId);",
+                  "    console.log('Queue ID saved:', response.queueId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue"]
+            }
+          }
+        },
+        {
+          "name": "Add Tracks to Queue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackIds\": [\"{{trackId}}\"],\n  \"source\": \"postman_test\",\n  \"playNext\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/tracks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "tracks"]
+            }
+          }
+        },
+        {
+          "name": "Remove Track from Queue",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/tracks/0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "tracks", "0"]
+            }
+          }
+        },
+        {
+          "name": "Clear Queue",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/clear?keepCurrentTrack=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "clear"],
+              "query": [
+                {
+                  "key": "keepCurrentTrack",
+                  "value": "false"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reorder Queue",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackId\": \"{{trackId}}\",\n  \"newIndex\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "reorder"]
+            }
+          }
+        },
+        {
+          "name": "Update Queue Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repeatMode\": 2,\n  \"isShuffled\": true,\n  \"currentIndex\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "settings"]
+            }
+          }
+        },
+        {
+          "name": "Replace Queue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackIds\": [\"{{trackId}}\"],\n  \"startIndex\": 0,\n  \"source\": \"postman_replace\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/replace",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "replace"]
+            }
+          }
+        },
+        {
+          "name": "Next Track",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/next",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "next"]
+            }
+          }
+        },
+        {
+          "name": "Previous Track",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/previous",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "previous"]
+            }
+          }
+        },
+        {
+          "name": "Jump to Position",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/queue/position/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "queue", "position", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Library Scanner",
+      "item": [
+        {
+          "name": "Get Supported Formats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/scanner/supported-formats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "scanner", "supported-formats"]
+            }
+          }
+        },
+        {
+          "name": "Queue Library Scan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('scanRequestId', response.requestId);",
+                  "    console.log('Scan queued, request ID:', response.requestId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"libraryPath\": \"/path/to/music/library\",\n  \"requestId\": \"scan_{{$randomUUID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/scanner/scan",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "scanner", "scan"]
+            }
+          }
+        },
+        {
+          "name": "Scan Single File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/scanner/scan/single?filePath=/path/to/song.mp3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "scanner", "scan", "single"],
+              "query": [
+                {
+                  "key": "filePath",
+                  "value": "/path/to/song.mp3",
+                  "description": "Full path to the audio file to scan"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Diagnostics",
+      "item": [
+        {
+          "name": "Database Data Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Database diagnostic completed');",
+                  "    console.log('Total artists:', response.totalCounts.artistCount);",
+                  "    console.log('Total albums:', response.totalCounts.albumCount);",
+                  "    console.log('Total tracks:', response.totalCounts.trackCount);",
+                  "    console.log('Duplicate artists found:', response.duplicateArtists.length);",
+                  "    console.log('Duplicate albums found:', response.duplicateAlbums.length);",
+                  "    ",
+                  "    // Log duplicate details if any found",
+                  "    if (response.duplicateArtists.length > 0) {",
+                  "        console.log('--- Duplicate Artists ---');",
+                  "        response.duplicateArtists.forEach(dup => {",
+                  "            console.log(`${dup.name}: ${dup.count} duplicates (IDs: ${dup.ids.join(', ')})`);",
+                  "        });",
+                  "    }",
+                  "    ",
+                  "    if (response.duplicateAlbums.length > 0) {",
+                  "        console.log('--- Duplicate Albums ---');",
+                  "        response.duplicateAlbums.forEach(dup => {",
+                  "            console.log(`${dup.title} (Artist ID ${dup.artistId}): ${dup.count} duplicates`);",
+                  "        });",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/diagnostic/data-check",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "diagnostic", "data-check"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Data Cleanup",
+      "item": [
+        {
+          "name": "Merge Duplicate Artists",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Artist cleanup completed:', response.message);",
+                  "    console.log('Duplicate groups found:', response.duplicateGroupsFound);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/cleanup/merge-duplicate-artists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "cleanup", "merge-duplicate-artists"]
+            }
+          }
+        },
+        {
+          "name": "Merge Duplicate Albums",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Album cleanup completed:', response.message);",
+                  "    console.log('Duplicate groups found:', response.duplicateGroupsFound);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/cleanup/merge-duplicate-albums",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "cleanup", "merge-duplicate-albums"]
+            }
+          }
+        },
+        {
+          "name": "Clean All Data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Comprehensive cleanup completed:', response.message);",
+                  "    console.log('Artists merged:', response.artistsMerged);",
+                  "    console.log('Albums merged:', response.albumsMerged);",
+                  "    console.log('Artist groups found:', response.duplicateArtistGroupsFound);",
+                  "    console.log('Album groups found:', response.duplicateAlbumGroupsFound);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/cleanup/clean-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "cleanup", "clean-all"]
+            }
+          }
+        }
+      ]
     }
   ]
 }
@@ -537,7 +1268,13 @@ Create a new environment with these variables:
    - Run "Get All Tracks" - this saves the first track ID
    - Now you can test all ID-based endpoints
 
-4. **Token Refresh**
+4. **Database Diagnostics**
+   - Use "Database Data Check" in the Diagnostics folder to get library overview
+   - Review console output for detailed duplicate analysis
+   - No authentication required (but should be restricted in production)
+   - Helpful for planning cleanup operations
+
+5. **Token Refresh**
    - When your access token expires (after 60 minutes)
    - Run the "Refresh Token" request
    - New tokens will be automatically saved
