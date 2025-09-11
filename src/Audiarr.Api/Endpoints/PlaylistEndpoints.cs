@@ -101,6 +101,19 @@ public static class PlaylistEndpoints
             if (playlist.UserId != userId && !playlist.IsPublic)
                 return Results.Forbid();
 
+            // Defensive recalculation of track count and total duration
+            var actualTrackCount = playlist.PlaylistTracks.Count;
+            var actualTotalDurationMs = playlist.PlaylistTracks.Sum(pt => pt.Track?.DurationMs ?? 0);
+            var actualTotalDuration = actualTotalDurationMs > 0 ? TimeSpan.FromMilliseconds(actualTotalDurationMs) : (TimeSpan?)null;
+
+            // Update if there's a mismatch (self-healing)
+            if (playlist.TrackCount != actualTrackCount || playlist.TotalDuration != actualTotalDuration)
+            {
+                playlist.TrackCount = actualTrackCount;
+                playlist.TotalDuration = actualTotalDuration;
+                await db.SaveChangesAsync();
+            }
+
             var playlistDetails = new PlaylistDetailsDto
             {
                 Id = playlist.Id,
@@ -487,7 +500,10 @@ public static class PlaylistEndpoints
                     playlist.TotalDuration = TimeSpan.FromMilliseconds(currentDuration + totalDurationMs);
                 }
 
-                // Recalculate integer positions
+                // Save the new tracks and metadata updates first
+                await db.SaveChangesAsync();
+
+                // Now recalculate integer positions for all tracks (including the newly saved ones)
                 var allTracks = await db.PlaylistTracks
                     .Where(pt => pt.PlaylistId == id)
                     .OrderBy(pt => pt.PositionFloat)
@@ -498,6 +514,7 @@ public static class PlaylistEndpoints
                     allTracks[i].Position = i;
                 }
 
+                // Save the position updates
                 await db.SaveChangesAsync();
             }
 
@@ -556,10 +573,16 @@ public static class PlaylistEndpoints
             playlist.UpdatedAt = DateTime.UtcNow;
 
             // Update total duration
-            if (totalDurationMs > 0 && playlist.TotalDuration.HasValue)
+            if (playlist.TotalDuration.HasValue && totalDurationMs > 0)
             {
                 var newDurationMs = Math.Max(0, playlist.TotalDuration.Value.TotalMilliseconds - totalDurationMs);
                 playlist.TotalDuration = newDurationMs > 0 ? TimeSpan.FromMilliseconds(newDurationMs) : null;
+            }
+            
+            // If no tracks remain, ensure duration is null
+            if (playlist.TrackCount == 0)
+            {
+                playlist.TotalDuration = null;
             }
 
             // Recalculate positions for remaining tracks
