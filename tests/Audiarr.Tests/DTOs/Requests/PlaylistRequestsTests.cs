@@ -164,9 +164,9 @@ public class PlaylistRequestsTests
         {
             Tracks = new List<TrackReorderItem>
             {
-                new() { TrackId = "track1", NewPosition = 0.5m },
-                new() { TrackId = "track2", NewPosition = 1.5m },
-                new() { TrackId = "track3", NewPosition = 2.5m }
+                new() { TrackId = "track1", NewPosition = 0.5 },
+                new() { TrackId = "track2", NewPosition = 1.5 },
+                new() { TrackId = "track3", NewPosition = 2.5 }
             }
         };
 
@@ -188,12 +188,12 @@ public class PlaylistRequestsTests
         var item = new TrackReorderItem
         {
             TrackId = "track123",
-            NewPosition = 5.25m
+            NewPosition = 5.25
         };
 
         // Act & Assert
         Assert.Equal("track123", item.TrackId);
-        Assert.Equal(5.25m, item.NewPosition);
+        Assert.Equal(5.25, item.NewPosition);
     }
 
     [Fact]

@@ -5,7 +5,7 @@ public class PlaylistTrack
     public required string PlaylistId { get; set; }
     public required string TrackId { get; set; }
     public int Position { get; set; }
-    public decimal PositionFloat { get; set; } = 0; // For conflict-free reordering
+    public double PositionFloat { get; set; } = 0; // For conflict-free reordering
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
     public string? AddedBy { get; set; } // Username who added the track (for future collaborative features)
 

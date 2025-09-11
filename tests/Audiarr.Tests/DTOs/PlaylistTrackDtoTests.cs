@@ -25,7 +25,7 @@ public class PlaylistTrackDtoTests
         Assert.Null(dto.Year);
         Assert.Equal(string.Empty, dto.FilePath);
         Assert.Equal(0, dto.Position);
-        Assert.Equal(0m, dto.PositionFloat);
+        Assert.Equal(0, dto.PositionFloat);
         Assert.Equal(default(DateTime), dto.AddedAt);
         Assert.Null(dto.AddedBy);
     }
@@ -51,7 +51,7 @@ public class PlaylistTrackDtoTests
         dto.Year = 2024;
         dto.FilePath = "/music/test.mp3";
         dto.Position = 3;
-        dto.PositionFloat = 3.5m;
+        dto.PositionFloat = 3.5;
         dto.AddedAt = testDate;
         dto.AddedBy = "testuser";
 
@@ -69,7 +69,7 @@ public class PlaylistTrackDtoTests
         Assert.Equal(2024, dto.Year);
         Assert.Equal("/music/test.mp3", dto.FilePath);
         Assert.Equal(3, dto.Position);
-        Assert.Equal(3.5m, dto.PositionFloat);
+        Assert.Equal(3.5, dto.PositionFloat);
         Assert.Equal(testDate, dto.AddedAt);
         Assert.Equal("testuser", dto.AddedBy);
     }
@@ -91,7 +91,7 @@ public class PlaylistTrackDtoTests
 
             // Playlist-specific information
             Position = 5,
-            PositionFloat = 5.25m,
+            PositionFloat = 5.25,
             AddedAt = DateTime.UtcNow,
             AddedBy = "user123"
         };
@@ -100,7 +100,7 @@ public class PlaylistTrackDtoTests
         Assert.NotEqual(string.Empty, dto.TrackId);
         Assert.NotEqual(string.Empty, dto.Title);
         Assert.NotEqual(0, dto.Position);
-        Assert.NotEqual(0m, dto.PositionFloat);
+        Assert.NotEqual(0.0, dto.PositionFloat);
         Assert.NotNull(dto.AddedBy);
     }
 
@@ -110,7 +110,7 @@ public class PlaylistTrackDtoTests
     [InlineData(1, 1.5)]
     [InlineData(2, 1.75)]
     [InlineData(100, 99.999)]
-    public void PlaylistTrackDto_PositionFields_CanHoldDifferentValues(int position, decimal positionFloat)
+    public void PlaylistTrackDto_PositionFields_CanHoldDifferentValues(int position, double positionFloat)
     {
         // Arrange & Act
         var dto = new PlaylistTrackDto
@@ -144,12 +144,12 @@ public class PlaylistTrackDtoTests
         // This test demonstrates how PositionFloat can be used for reordering
 
         // Arrange - Create three tracks in order
-        var track1 = new PlaylistTrackDto { TrackId = "1", Position = 0, PositionFloat = 1.0m };
-        var track2 = new PlaylistTrackDto { TrackId = "2", Position = 1, PositionFloat = 2.0m };
-        var track3 = new PlaylistTrackDto { TrackId = "3", Position = 2, PositionFloat = 3.0m };
+        var track1 = new PlaylistTrackDto { TrackId = "1", Position = 0, PositionFloat = 1.0 };
+        var track2 = new PlaylistTrackDto { TrackId = "2", Position = 1, PositionFloat = 2.0 };
+        var track3 = new PlaylistTrackDto { TrackId = "3", Position = 2, PositionFloat = 3.0 };
 
         // Act - Move track3 between track1 and track2
-        track3.PositionFloat = 1.5m;
+        track3.PositionFloat = 1.5;
 
         // Assert - track3's PositionFloat is now between track1 and track2
         Assert.True(track3.PositionFloat > track1.PositionFloat);

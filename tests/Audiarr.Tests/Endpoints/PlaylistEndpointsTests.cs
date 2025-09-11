@@ -81,8 +81,8 @@ public class PlaylistEndpointsTests
         {
             Tracks = new List<TrackReorderItem>
             {
-                new() { TrackId = "track1", NewPosition = 0.5m },
-                new() { TrackId = "track2", NewPosition = 1.5m }
+                new() { TrackId = "track1", NewPosition = 0.5 },
+                new() { TrackId = "track2", NewPosition = 1.5 }
             }
         };
 
@@ -90,7 +90,7 @@ public class PlaylistEndpointsTests
         Assert.NotNull(validRequest.Tracks);
         Assert.Equal(2, validRequest.Tracks.Count);
         Assert.Equal("track1", validRequest.Tracks[0].TrackId);
-        Assert.Equal(0.5m, validRequest.Tracks[0].NewPosition);
+        Assert.Equal(0.5, validRequest.Tracks[0].NewPosition);
     }
 
     [Fact]
@@ -223,18 +223,18 @@ public class PlaylistEndpointsTests
         {
             Tracks = new List<TrackReorderItem>
             {
-                new() { TrackId = "track1", NewPosition = 0.5m },
-                new() { TrackId = "track2", NewPosition = 1.5m },
-                new() { TrackId = "track3", NewPosition = 2.0m },
-                new() { TrackId = "track4", NewPosition = 2.5m }
+                new() { TrackId = "track1", NewPosition = 0.5 },
+                new() { TrackId = "track2", NewPosition = 1.5 },
+                new() { TrackId = "track3", NewPosition = 2.0 },
+                new() { TrackId = "track4", NewPosition = 2.5 }
             }
         };
 
         // Act & Assert
         Assert.NotNull(request.Tracks);
         Assert.Equal(4, request.Tracks.Count);
-        Assert.Equal(0.5m, request.Tracks[0].NewPosition);
-        Assert.Equal(2.5m, request.Tracks[3].NewPosition);
+        Assert.Equal(0.5, request.Tracks[0].NewPosition);
+        Assert.Equal(2.5, request.Tracks[3].NewPosition);
     }
 
     [Fact]
@@ -246,11 +246,11 @@ public class PlaylistEndpointsTests
             Tracks = new List<TrackReorderItem>
             {
                 // Move track between position 1 and 2
-                new() { TrackId = "trackA", NewPosition = 1.5m },
+                new() { TrackId = "trackA", NewPosition = 1.5 },
                 // Move track between position 1 and the newly placed track
-                new() { TrackId = "trackB", NewPosition = 1.25m },
+                new() { TrackId = "trackB", NewPosition = 1.25 },
                 // Move track between the two newly placed tracks
-                new() { TrackId = "trackC", NewPosition = 1.375m }
+                new() { TrackId = "trackC", NewPosition = 1.375 }
             }
         };
 
@@ -260,9 +260,9 @@ public class PlaylistEndpointsTests
 
         // Verify positions maintain proper ordering
         var sortedPositions = request.Tracks.Select(t => t.NewPosition).OrderBy(p => p).ToList();
-        Assert.Equal(1.25m, sortedPositions[0]);
-        Assert.Equal(1.375m, sortedPositions[1]);
-        Assert.Equal(1.5m, sortedPositions[2]);
+        Assert.Equal(1.25, sortedPositions[0]);
+        Assert.Equal(1.375, sortedPositions[1]);
+        Assert.Equal(1.5, sortedPositions[2]);
     }
 
     [Fact]

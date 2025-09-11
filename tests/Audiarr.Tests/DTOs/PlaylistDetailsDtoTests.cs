@@ -62,7 +62,7 @@ public class PlaylistDetailsDtoTests
             Title = "Song 1",
             ArtistName = "Artist 1",
             Position = 0,
-            PositionFloat = 0m
+            PositionFloat = 0
         };
         var track2 = new PlaylistTrackDto
         {
@@ -70,7 +70,7 @@ public class PlaylistDetailsDtoTests
             Title = "Song 2",
             ArtistName = "Artist 2",
             Position = 1,
-            PositionFloat = 1m
+            PositionFloat = 1
         };
 
         // Act
