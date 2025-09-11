@@ -39,26 +39,50 @@ public static class PlaylistEndpoints
 
             var total = await query.CountAsync();
 
-            var playlists = await query
+            // First get the playlist data with counts
+            var playlistData = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
-                .Select(p => new PlaylistDto
+                .Select(p => new
                 {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    UserId = p.UserId,
+                    p.Id,
+                    p.Name,
+                    p.Description,
+                    p.UserId,
                     Username = p.User.Username,
-                    IsPublic = p.IsPublic,
-                    ImagePath = p.ImagePath,
-                    TrackCount = p.TrackCount,
-                    TotalDuration = p.TotalDuration,
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-                    LastModified = p.LastModified,
-                    PlayCount = p.PlayCount
+                    p.IsPublic,
+                    p.ImagePath,
+                    // Calculate actual track count from the relationship
+                    TrackCount = db.PlaylistTracks.Count(pt => pt.PlaylistId == p.Id),
+                    // Calculate total duration in milliseconds
+                    TotalDurationMs = db.PlaylistTracks
+                        .Where(pt => pt.PlaylistId == p.Id)
+                        .Join(db.Tracks, pt => pt.TrackId, t => t.Id, (pt, t) => t.DurationMs)
+                        .Sum(),
+                    p.CreatedAt,
+                    p.UpdatedAt,
+                    p.LastModified,
+                    p.PlayCount
                 })
                 .ToListAsync();
+
+            // Convert to DTOs with proper TimeSpan conversion
+            var playlists = playlistData.Select(p => new PlaylistDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                UserId = p.UserId,
+                Username = p.Username,
+                IsPublic = p.IsPublic,
+                ImagePath = p.ImagePath,
+                TrackCount = p.TrackCount,
+                TotalDuration = p.TotalDurationMs > 0 ? TimeSpan.FromMilliseconds(p.TotalDurationMs) : (TimeSpan?)null,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                LastModified = p.LastModified,
+                PlayCount = p.PlayCount
+            }).ToList();
 
             return Results.Ok(new
             {
@@ -357,26 +381,50 @@ public static class PlaylistEndpoints
 
             var total = await query.CountAsync();
 
-            var playlists = await query
+            // First get the playlist data with counts
+            var playlistData = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
-                .Select(p => new PlaylistDto
+                .Select(p => new
                 {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    UserId = p.UserId,
+                    p.Id,
+                    p.Name,
+                    p.Description,
+                    p.UserId,
                     Username = p.User.Username,
-                    IsPublic = p.IsPublic,
-                    ImagePath = p.ImagePath,
-                    TrackCount = p.TrackCount,
-                    TotalDuration = p.TotalDuration,
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-                    LastModified = p.LastModified,
-                    PlayCount = p.PlayCount
+                    p.IsPublic,
+                    p.ImagePath,
+                    // Calculate actual track count from the relationship
+                    TrackCount = db.PlaylistTracks.Count(pt => pt.PlaylistId == p.Id),
+                    // Calculate total duration in milliseconds
+                    TotalDurationMs = db.PlaylistTracks
+                        .Where(pt => pt.PlaylistId == p.Id)
+                        .Join(db.Tracks, pt => pt.TrackId, t => t.Id, (pt, t) => t.DurationMs)
+                        .Sum(),
+                    p.CreatedAt,
+                    p.UpdatedAt,
+                    p.LastModified,
+                    p.PlayCount
                 })
                 .ToListAsync();
+
+            // Convert to DTOs with proper TimeSpan conversion
+            var playlists = playlistData.Select(p => new PlaylistDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                UserId = p.UserId,
+                Username = p.Username,
+                IsPublic = p.IsPublic,
+                ImagePath = p.ImagePath,
+                TrackCount = p.TrackCount,
+                TotalDuration = p.TotalDurationMs > 0 ? TimeSpan.FromMilliseconds(p.TotalDurationMs) : (TimeSpan?)null,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                LastModified = p.LastModified,
+                PlayCount = p.PlayCount
+            }).ToList();
 
             return Results.Ok(new
             {
