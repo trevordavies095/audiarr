@@ -19,6 +19,7 @@ public class AudiarrContext : DbContext
     public DbSet<TrackArtist> TrackArtists { get; set; } = null!;
     public DbSet<AlbumArtist> AlbumArtists { get; set; } = null!;
     public DbSet<TrackGenre> TrackGenres { get; set; } = null!;
+    public DbSet<AlbumGenre> AlbumGenres { get; set; } = null!;
     public DbSet<PlaybackQueue> PlaybackQueues { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
@@ -214,6 +215,27 @@ public class AudiarrContext : DbContext
 
             entity.HasOne(e => e.Genre)
                 .WithMany(g => g.TrackGenres)
+                .HasForeignKey(e => e.GenreId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AlbumGenre entity (many-to-many join table)
+        modelBuilder.Entity<AlbumGenre>(entity =>
+        {
+            entity.HasKey(e => new { e.AlbumId, e.GenreId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.AlbumId);
+            entity.HasIndex(e => e.GenreId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Album)
+                .WithMany(a => a.AlbumGenres)
+                .HasForeignKey(e => e.AlbumId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Genre)
+                .WithMany(g => g.AlbumGenres)
                 .HasForeignKey(e => e.GenreId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

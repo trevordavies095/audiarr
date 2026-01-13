@@ -7,4 +7,5 @@ public class Genre : BaseEntity
 
     // Navigation properties
     public virtual ICollection<TrackGenre> TrackGenres { get; set; } = new List<TrackGenre>();
+    public virtual ICollection<AlbumGenre> AlbumGenres { get; set; } = new List<AlbumGenre>();
 }
