@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Audiarr.Data.Context;
 using Audiarr.Core.DTOs;
+using Audiarr.Core.Entities;
 
 namespace Audiarr.Api.Endpoints;
 
@@ -22,6 +23,10 @@ public static class AlbumEndpoints
             var query = db.Albums
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
+                .Include(a => a.AlbumArtists)
+                    .ThenInclude(aa => aa.Artist)
+                .Include(a => a.AlbumGenres)
+                    .ThenInclude(ag => ag.Genre)
                 .OrderBy(a => a.Artist.SortName ?? a.Artist.Name)
                 .ThenBy(a => a.Year)
                 .ThenBy(a => a.Title);
@@ -48,6 +53,12 @@ public static class AlbumEndpoints
                 ReleaseDate = a.ReleaseDate
             }).ToList();
 
+            // Populate multi-valued tag arrays
+            foreach (var album in albumsData.Zip(albums, (a, dto) => new { Album = a, Dto = dto }))
+            {
+                PopulateMultiValuedTags(album.Album, album.Dto);
+            }
+
             return Results.Ok(new
             {
                 data = albums,
@@ -69,6 +80,10 @@ public static class AlbumEndpoints
             var albumData = await db.Albums
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
+                .Include(a => a.AlbumArtists)
+                    .ThenInclude(aa => aa.Artist)
+                .Include(a => a.AlbumGenres)
+                    .ThenInclude(ag => ag.Genre)
                 .Where(a => a.Id == id)
                 .FirstOrDefaultAsync();
 
@@ -99,7 +114,8 @@ public static class AlbumEndpoints
                 .ThenBy(t => t.TrackNumber)
                 .ToList();
 
-            var result = new
+            // Create AlbumDto and populate multi-valued tags
+            var albumDto = new AlbumDto
             {
                 Id = albumData.Id,
                 Title = albumData.Title,
@@ -109,9 +125,30 @@ public static class AlbumEndpoints
                 TrackCount = albumData.Tracks.Count,
                 Genre = albumData.Tracks.Select(t => t.Genre).FirstOrDefault(),
                 CoverArtPath = albumData.CoverArtPath,
-                ReleaseDate = albumData.ReleaseDate,
+                ReleaseDate = albumData.ReleaseDate
+            };
+
+            PopulateMultiValuedTags(albumData, albumDto);
+
+            var result = new
+            {
+                albumDto.Id,
+                albumDto.Title,
+                albumDto.ArtistId,
+                albumDto.ArtistName,
+                albumDto.Year,
+                albumDto.TrackCount,
+                albumDto.Genre,
+                albumDto.CoverArtPath,
+                albumDto.ReleaseDate,
                 TotalDurationMs = albumData.Tracks.Sum(t => t.DurationMs),
-                Tracks = tracks
+                Tracks = tracks,
+                // Multi-valued tag arrays
+                albumDto.ArtistIds,
+                albumDto.ArtistNames,
+                albumDto.Genres,
+                albumDto.PrimaryArtistId,
+                albumDto.PrimaryArtistName
             };
 
             return Results.Ok(result);
@@ -226,6 +263,10 @@ public static class AlbumEndpoints
             var albumsData = await db.Albums
                 .Include(a => a.Artist)
                 .Include(a => a.Tracks)
+                .Include(a => a.AlbumArtists)
+                    .ThenInclude(aa => aa.Artist)
+                .Include(a => a.AlbumGenres)
+                    .ThenInclude(ag => ag.Genre)
                 .OrderByDescending(a => a.AddedDate)
                 .Take(limit)
                 .ToListAsync();
@@ -244,12 +285,69 @@ public static class AlbumEndpoints
                 ReleaseDate = a.ReleaseDate
             }).ToList();
 
+            // Populate multi-valued tag arrays
+            foreach (var album in albumsData.Zip(albums, (a, dto) => new { Album = a, Dto = dto }))
+            {
+                PopulateMultiValuedTags(album.Album, album.Dto);
+            }
+
             return Results.Ok(new { data = albums });
         })
         .WithName("GetRecentAlbums")
         .WithOpenApi()
         .WithSummary("Get recently added albums")
         .WithDescription("Returns recently added albums");
+    }
+
+    /// <summary>
+    /// Populates multi-valued tag arrays (ArtistIds, ArtistNames, Genres) in an AlbumDto from an Album entity.
+    /// Ensures primary artist/genre (matching Album.ArtistId and Album.Genre) appears first in arrays.
+    /// </summary>
+    private static void PopulateMultiValuedTags(Album album, AlbumDto dto)
+    {
+        // Populate artist arrays: Primary first (matching Album.ArtistId), then others alphabetically
+        var primaryArtist = album.AlbumArtists
+            .FirstOrDefault(aa => aa.ArtistId == album.ArtistId)?.Artist;
+        var otherArtists = album.AlbumArtists
+            .Where(aa => aa.ArtistId != album.ArtistId)
+            .Select(aa => aa.Artist)
+            .OrderBy(a => a.Name)
+            .ToList();
+
+        var allArtists = primaryArtist != null
+            ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+            : otherArtists;
+
+        dto.ArtistIds = allArtists.Select(a => a.Id).ToArray();
+        dto.ArtistNames = allArtists.Select(a => a.Name).ToArray();
+
+        // If no artists in many-to-many relationship, fallback to single-value field
+        if (dto.ArtistIds.Length == 0 && !string.IsNullOrEmpty(album.ArtistId))
+        {
+            dto.ArtistIds = new[] { album.ArtistId };
+            dto.ArtistNames = new[] { album.Artist?.Name ?? string.Empty };
+        }
+
+        // Populate genre arrays: Primary first (matching Album.Genre name), then others alphabetically
+        var primaryGenre = album.AlbumGenres
+            .FirstOrDefault(ag => ag.Genre.Name == album.Genre)?.Genre;
+        var otherGenres = album.AlbumGenres
+            .Where(ag => ag.Genre.Name != album.Genre)
+            .Select(ag => ag.Genre)
+            .OrderBy(g => g.Name)
+            .ToList();
+
+        var allGenres = primaryGenre != null
+            ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+            : otherGenres;
+
+        dto.Genres = allGenres.Select(g => g.Name).ToArray();
+
+        // If no genres in many-to-many relationship, fallback to single-value field
+        if (dto.Genres.Length == 0 && !string.IsNullOrEmpty(album.Genre))
+        {
+            dto.Genres = new[] { album.Genre };
+        }
     }
 
     private static string GetImageContentType(string filePath)
