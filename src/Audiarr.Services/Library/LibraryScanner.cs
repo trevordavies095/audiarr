@@ -129,8 +129,13 @@ public class LibraryScanner : ILibraryScanner
                     .ThenInclude(a => a!.Artist)
                 .Include(t => t.Album)
                     .ThenInclude(a => a!.AlbumArtists)
+                .Include(t => t.Album)
+                    .ThenInclude(a => a!.AlbumGenres)
+                        .ThenInclude(ag => ag.Genre)
                 .Include(t => t.Artist)
                 .Include(t => t.TrackArtists)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .FirstOrDefaultAsync(t => t.FileHash == fileHash, cancellationToken);
 
             using var file = TagLib.File.Create(filePath);
@@ -149,10 +154,19 @@ public class LibraryScanner : ILibraryScanner
             // Update album artist relationships
             await UpdateAlbumArtistsAsync(album, albumArtists, cancellationToken);
 
+            // Parse album genres (prefer Genres[], fallback to FirstGenre)
+            var albumGenreNames = ParseGenres(tag.Genres, tag.FirstGenre);
+            var albumGenres = await GetOrCreateGenresAsync(albumGenreNames, cancellationToken);
+            await UpdateAlbumGenresAsync(album, albumGenres, cancellationToken);
+
             // Parse track artists (prefer Performers, fallback to FirstPerformer)
             var trackArtistNames = ParseArtists(tag.Performers, tag.FirstPerformer);
             var trackArtists = await GetOrCreateArtistsAsync(trackArtistNames, cancellationToken);
             var primaryTrackArtist = trackArtists[0];
+
+            // Parse track genres (prefer Genres[], fallback to FirstGenre)
+            var trackGenreNames = ParseGenres(tag.Genres, tag.FirstGenre);
+            var trackGenres = await GetOrCreateGenresAsync(trackGenreNames, cancellationToken);
 
             // Extract cover art if available
             if (album.CoverArtPath == null)
@@ -196,6 +210,9 @@ public class LibraryScanner : ILibraryScanner
                 // Update track artist relationships (this also sets ArtistId for backward compatibility)
                 await UpdateTrackArtistsAsync(existingTrack, trackArtists, cancellationToken);
 
+                // Update track genre relationships (this also sets Genre for backward compatibility)
+                await UpdateTrackGenresAsync(existingTrack, trackGenres, cancellationToken);
+
                 // Entity is already tracked from the Include query, no need to call Update()
                 result.UpdatedTracks = 1;
                 var artistNames = string.Join(", ", trackArtists.Select(a => a.Name));
@@ -217,7 +234,6 @@ public class LibraryScanner : ILibraryScanner
                     FilePath = filePath,
                     FileHash = fileHash,
                     FileSizeBytes = new FileInfo(filePath).Length,
-                    Genre = tag.FirstGenre,
                     Year = tag.Year > 0 ? (int)tag.Year : null
                 };
 
@@ -226,6 +242,9 @@ public class LibraryScanner : ILibraryScanner
 
                 // Update track artist relationships (this also sets ArtistId for backward compatibility)
                 await UpdateTrackArtistsAsync(track, trackArtists, cancellationToken);
+
+                // Update track genre relationships (this also sets Genre for backward compatibility)
+                await UpdateTrackGenresAsync(track, trackGenres, cancellationToken);
 
                 result.NewTracks = 1;
                 var artistNames = string.Join(", ", trackArtists.Select(a => a.Name));
@@ -324,6 +343,63 @@ public class LibraryScanner : ILibraryScanner
         }
 
         return artists;
+    }
+
+    /// <summary>
+    /// Gets or creates multiple genres in batch.
+    /// </summary>
+    /// <param name="genreNames">List of genre names to get or create</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of Genre entities in the same order as input</returns>
+    private async Task<List<Genre>> GetOrCreateGenresAsync(List<string> genreNames, CancellationToken cancellationToken)
+    {
+        if (genreNames.Count == 0)
+        {
+            return new List<Genre>();
+        }
+
+        var genres = new List<Genre>();
+        var normalizedNames = genreNames.Select(n => NormalizeString(n)).ToList();
+
+        // Batch lookup existing genres
+        var existingGenres = await _context.Genres
+            .Where(g => normalizedNames.Contains(g.NormalizedName))
+            .ToListAsync(cancellationToken);
+
+        var existingByNormalized = existingGenres.ToDictionary(g => g.NormalizedName);
+
+        // Create missing genres
+        var genresToCreate = new List<Genre>();
+        for (int i = 0; i < genreNames.Count; i++)
+        {
+            var normalized = normalizedNames[i];
+            var name = genreNames[i];
+
+            if (existingByNormalized.TryGetValue(normalized, out var existingGenre))
+            {
+                genres.Add(existingGenre);
+            }
+            else
+            {
+                var newGenre = new Genre
+                {
+                    Name = name,
+                    NormalizedName = normalized
+                };
+                genresToCreate.Add(newGenre);
+                genres.Add(newGenre);
+            }
+        }
+
+        // Batch create new genres
+        if (genresToCreate.Count > 0)
+        {
+            await _context.Genres.AddRangeAsync(genresToCreate, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken); // Save immediately to prevent duplicates
+            _logger.LogDebug("Created {Count} new genres", genresToCreate.Count);
+        }
+
+        return genres;
     }
 
     /// <summary>
@@ -440,6 +516,110 @@ public class LibraryScanner : ILibraryScanner
         if (toRemove.Count > 0 || toAdd.Count > 0)
         {
             _logger.LogDebug("Updated AlbumArtist relationships for album {AlbumId}: removed {Removed}, added {Added}", 
+                album.Id, toRemove.Count, toAdd.Count);
+        }
+    }
+
+    /// <summary>
+    /// Updates TrackGenre relationships for a track, adding new ones and removing old ones.
+    /// Sets the primary genre (first in list) to track.Genre for backward compatibility.
+    /// </summary>
+    private async Task UpdateTrackGenresAsync(Track track, List<Genre> genres, CancellationToken cancellationToken)
+    {
+        // Set primary genre for backward compatibility (or null if empty)
+        track.Genre = genres.Count > 0 ? genres[0].Name : null;
+
+        // Load existing TrackGenres if not already loaded
+        if (track.TrackGenres == null || !_context.Entry(track).Collection(t => t.TrackGenres).IsLoaded)
+        {
+            await _context.Entry(track)
+                .Collection(t => t.TrackGenres)
+                .LoadAsync(cancellationToken);
+        }
+
+        var existingGenreIds = track.TrackGenres.Select(tg => tg.GenreId).ToHashSet();
+        var newGenreIds = genres.Select(g => g.Id).ToHashSet();
+
+        // Remove relationships that are no longer in the new list
+        var toRemove = track.TrackGenres
+            .Where(tg => !newGenreIds.Contains(tg.GenreId))
+            .ToList();
+
+        foreach (var trackGenre in toRemove)
+        {
+            _context.Remove(trackGenre);
+        }
+
+        // Add new relationships that don't exist
+        var toAdd = genres
+            .Where(g => !existingGenreIds.Contains(g.Id))
+            .Select(g => new TrackGenre
+            {
+                TrackId = track.Id,
+                GenreId = g.Id
+            })
+            .ToList();
+
+        if (toAdd.Count > 0)
+        {
+            await _context.TrackGenres.AddRangeAsync(toAdd, cancellationToken);
+        }
+
+        if (toRemove.Count > 0 || toAdd.Count > 0)
+        {
+            _logger.LogDebug("Updated TrackGenre relationships for track {TrackId}: removed {Removed}, added {Added}", 
+                track.Id, toRemove.Count, toAdd.Count);
+        }
+    }
+
+    /// <summary>
+    /// Updates AlbumGenre relationships for an album, adding new ones and removing old ones.
+    /// Sets the primary genre (first in list) to album.Genre for backward compatibility.
+    /// </summary>
+    private async Task UpdateAlbumGenresAsync(Album album, List<Genre> genres, CancellationToken cancellationToken)
+    {
+        // Set primary genre for backward compatibility (or null if empty)
+        album.Genre = genres.Count > 0 ? genres[0].Name : null;
+
+        // Load existing AlbumGenres if not already loaded
+        if (album.AlbumGenres == null || !_context.Entry(album).Collection(a => a.AlbumGenres).IsLoaded)
+        {
+            await _context.Entry(album)
+                .Collection(a => a.AlbumGenres)
+                .LoadAsync(cancellationToken);
+        }
+
+        var existingGenreIds = album.AlbumGenres.Select(ag => ag.GenreId).ToHashSet();
+        var newGenreIds = genres.Select(g => g.Id).ToHashSet();
+
+        // Remove relationships that are no longer in the new list
+        var toRemove = album.AlbumGenres
+            .Where(ag => !newGenreIds.Contains(ag.GenreId))
+            .ToList();
+
+        foreach (var albumGenre in toRemove)
+        {
+            _context.Remove(albumGenre);
+        }
+
+        // Add new relationships that don't exist
+        var toAdd = genres
+            .Where(g => !existingGenreIds.Contains(g.Id))
+            .Select(g => new AlbumGenre
+            {
+                AlbumId = album.Id,
+                GenreId = g.Id
+            })
+            .ToList();
+
+        if (toAdd.Count > 0)
+        {
+            await _context.AlbumGenres.AddRangeAsync(toAdd, cancellationToken);
+        }
+
+        if (toRemove.Count > 0 || toAdd.Count > 0)
+        {
+            _logger.LogDebug("Updated AlbumGenre relationships for album {AlbumId}: removed {Removed}, added {Added}", 
                 album.Id, toRemove.Count, toAdd.Count);
         }
     }
@@ -732,6 +912,81 @@ public class LibraryScanner : ILibraryScanner
             result = new List<string> { "Unknown Artist" };
         }
 
+        return result;
+    }
+
+    /// <summary>
+    /// Parses genre names from TagLib tags, preferring native multi-valued tags over delimiter parsing.
+    /// </summary>
+    /// <param name="genres">Native multi-valued genres array from tag (e.g., tag.Genres)</param>
+    /// <param name="singleValue">Single-value fallback (e.g., tag.FirstGenre)</param>
+    /// <returns>List of genre names, trimmed and deduplicated. Returns empty list if no genres found (unlike artists, genres can be null/empty)</returns>
+    private List<string> ParseGenres(string[] genres, string? singleValue)
+    {
+        var result = new List<string>();
+
+        // Priority 1: Use native multi-valued tags if arrays are non-empty
+        if (genres != null && genres.Length > 0)
+        {
+            var validGenres = genres
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .Select(g => g.Trim())
+                .Distinct()
+                .ToList();
+
+            if (validGenres.Count > 0)
+            {
+                result = validGenres;
+                if (result.Count > 1)
+                {
+                    _logger.LogDebug("Found {Count} genres from native multi-valued tags", result.Count);
+                }
+            }
+        }
+
+        // Priority 2: If arrays are empty, fallback to single-value tags
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(singleValue))
+        {
+            var trimmedValue = singleValue.Trim();
+
+            // Priority 3: If single value contains delimiters and delimiter parsing is enabled, parse by delimiter
+            if (_multiValuedTagsOptions.EnableDelimiterParsing && trimmedValue.Length > 0)
+            {
+                // Try delimiters in order of preference
+                char? delimiter = null;
+                foreach (var delim in _multiValuedTagsOptions.PreferredDelimiters)
+                {
+                    if (delim.Length == 1 && trimmedValue.Contains(delim[0]))
+                    {
+                        delimiter = delim[0];
+                        break;
+                    }
+                }
+
+                if (delimiter.HasValue)
+                {
+                    result = trimmedValue
+                        .Split(delimiter.Value, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(g => g.Trim())
+                        .Where(g => !string.IsNullOrWhiteSpace(g))
+                        .Distinct()
+                        .ToList();
+
+                    if (result.Count > 1)
+                    {
+                        _logger.LogDebug("Parsed {Count} genres from delimiter-separated value using '{Delimiter}' delimiter", result.Count, delimiter.Value);
+                    }
+                }
+            }
+
+            // If no delimiter found or delimiter parsing disabled, treat as single genre
+            if (result.Count == 0)
+            {
+                result = new List<string> { trimmedValue };
+            }
+        }
+
+        // Unlike artists, genres can be null/empty - return empty list if no genres found
         return result;
     }
 }
