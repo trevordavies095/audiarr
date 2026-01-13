@@ -30,4 +30,5 @@ public class Track : BaseEntity
     public virtual Artist Artist { get; set; } = null!;
     public virtual ICollection<PlaylistTrack> PlaylistTracks { get; set; } = new List<PlaylistTrack>();
     public virtual ICollection<TrackArtist> TrackArtists { get; set; } = new List<TrackArtist>();
+    public virtual ICollection<TrackGenre> TrackGenres { get; set; } = new List<TrackGenre>();
 }
