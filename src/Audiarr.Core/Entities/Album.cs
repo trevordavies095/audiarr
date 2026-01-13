@@ -15,4 +15,6 @@ public class Album : BaseEntity
     // Navigation properties
     public virtual Artist Artist { get; set; } = null!;
     public virtual ICollection<Track> Tracks { get; set; } = new List<Track>();
+    public virtual ICollection<AlbumArtist> AlbumArtists { get; set; } = new List<AlbumArtist>();
+    public virtual ICollection<AlbumGenre> AlbumGenres { get; set; } = new List<AlbumGenre>();
 }
