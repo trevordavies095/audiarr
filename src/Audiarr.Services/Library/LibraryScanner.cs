@@ -492,8 +492,17 @@ public class LibraryScanner : ILibraryScanner
                 .LoadAsync(cancellationToken);
         }
 
+        // Check change tracker for pending AlbumArtist entities (to handle NoTrackingWithIdentityResolution)
+        var pendingAlbumArtists = _context.ChangeTracker.Entries<AlbumArtist>()
+            .Where(e => e.State == EntityState.Added && e.Entity.AlbumId == album.Id)
+            .Select(e => e.Entity.ArtistId)
+            .ToHashSet();
+
         var existingArtistIds = album.AlbumArtists.Select(aa => aa.ArtistId).ToHashSet();
         var newArtistIds = artists.Select(a => a.Id).ToHashSet();
+
+        // Combine existing and pending artist IDs to avoid duplicates
+        var allExistingArtistIds = existingArtistIds.Union(pendingAlbumArtists).ToHashSet();
 
         // Remove relationships that are no longer in the new list
         var toRemove = album.AlbumArtists
@@ -505,9 +514,9 @@ public class LibraryScanner : ILibraryScanner
             _context.Remove(albumArtist);
         }
 
-        // Add new relationships that don't exist
+        // Add new relationships that don't exist (neither in loaded collection nor in change tracker)
         var toAdd = artists
-            .Where(a => !existingArtistIds.Contains(a.Id))
+            .Where(a => !allExistingArtistIds.Contains(a.Id))
             .Select(a => new AlbumArtist
             {
                 AlbumId = album.Id,
@@ -596,8 +605,17 @@ public class LibraryScanner : ILibraryScanner
                 .LoadAsync(cancellationToken);
         }
 
+        // Check change tracker for pending AlbumGenre entities (to handle NoTrackingWithIdentityResolution)
+        var pendingAlbumGenres = _context.ChangeTracker.Entries<AlbumGenre>()
+            .Where(e => e.State == EntityState.Added && e.Entity.AlbumId == album.Id)
+            .Select(e => e.Entity.GenreId)
+            .ToHashSet();
+
         var existingGenreIds = album.AlbumGenres.Select(ag => ag.GenreId).ToHashSet();
         var newGenreIds = genres.Select(g => g.Id).ToHashSet();
+
+        // Combine existing and pending genre IDs to avoid duplicates
+        var allExistingGenreIds = existingGenreIds.Union(pendingAlbumGenres).ToHashSet();
 
         // Remove relationships that are no longer in the new list
         var toRemove = album.AlbumGenres
@@ -609,9 +627,9 @@ public class LibraryScanner : ILibraryScanner
             _context.Remove(albumGenre);
         }
 
-        // Add new relationships that don't exist
+        // Add new relationships that don't exist (neither in loaded collection nor in change tracker)
         var toAdd = genres
-            .Where(g => !existingGenreIds.Contains(g.Id))
+            .Where(g => !allExistingGenreIds.Contains(g.Id))
             .Select(g => new AlbumGenre
             {
                 AlbumId = album.Id,
