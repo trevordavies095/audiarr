@@ -76,6 +76,9 @@ try
     var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
         ?? throw new InvalidOperationException("JwtSettings not configured");
 
+    // Configure Multi-Valued Tags Settings
+    builder.Services.Configure<MultiValuedTagsOptions>(builder.Configuration.GetSection("MultiValuedTags"));
+
     // Add Authentication
     builder.Services.AddAuthentication(options =>
     {
