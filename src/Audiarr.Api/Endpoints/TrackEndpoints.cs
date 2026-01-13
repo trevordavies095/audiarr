@@ -236,7 +236,35 @@ public static class TrackEndpoints
                 PopulateMultiValuedTags(track.Track, track.Dto);
             }
 
-            return Results.Ok(new { data = tracks });
+            // Create extended response with PlayCount and LastPlayedDate for backward compatibility
+            var result = tracksData.Zip(tracks, (t, dto) => new
+            {
+                dto.Id,
+                dto.Title,
+                dto.ArtistId,
+                dto.ArtistName,
+                dto.AlbumId,
+                dto.AlbumTitle,
+                dto.TrackNumber,
+                dto.DiscNumber,
+                dto.DurationMs,
+                dto.Genre,
+                dto.Year,
+                dto.FileSize,
+                dto.Bitrate,
+                dto.Codec,
+                dto.FilePath,
+                PlayCount = t.PlayCount,
+                LastPlayedDate = t.LastPlayedDate,
+                // Multi-valued tag arrays
+                dto.ArtistIds,
+                dto.ArtistNames,
+                dto.Genres,
+                dto.PrimaryArtistId,
+                dto.PrimaryArtistName
+            }).ToList();
+
+            return Results.Ok(new { data = result });
         })
         .WithName("GetRecentlyPlayedTracks")
         .WithOpenApi()
@@ -285,7 +313,35 @@ public static class TrackEndpoints
                 PopulateMultiValuedTags(track.Track, track.Dto);
             }
 
-            return Results.Ok(new { data = tracks });
+            // Create extended response with PlayCount and LastPlayedDate for backward compatibility
+            var result = tracksData.Zip(tracks, (t, dto) => new
+            {
+                dto.Id,
+                dto.Title,
+                dto.ArtistId,
+                dto.ArtistName,
+                dto.AlbumId,
+                dto.AlbumTitle,
+                dto.TrackNumber,
+                dto.DiscNumber,
+                dto.DurationMs,
+                dto.Genre,
+                dto.Year,
+                dto.FileSize,
+                dto.Bitrate,
+                dto.Codec,
+                dto.FilePath,
+                PlayCount = t.PlayCount,
+                LastPlayedDate = t.LastPlayedDate,
+                // Multi-valued tag arrays
+                dto.ArtistIds,
+                dto.ArtistNames,
+                dto.Genres,
+                dto.PrimaryArtistId,
+                dto.PrimaryArtistName
+            }).ToList();
+
+            return Results.Ok(new { data = result });
         })
         .WithName("GetPopularTracks")
         .WithOpenApi()
