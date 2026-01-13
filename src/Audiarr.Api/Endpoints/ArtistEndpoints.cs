@@ -225,7 +225,7 @@ public static class ArtistEndpoints
 
     /// <summary>
     /// Populates multi-valued tag arrays (ArtistIds, ArtistNames, Genres) in an AlbumDto from an Album entity.
-    /// Ensures primary artist/genre (matching Album.ArtistId and Album.Genre) appears first in arrays.
+    /// Ensures primary artist/genre (matching Album.ArtistId and dto.Genre) appears first in arrays.
     /// </summary>
     private static void PopulateMultiValuedTags(Album album, AlbumDto dto)
     {
@@ -252,11 +252,12 @@ public static class ArtistEndpoints
             dto.ArtistNames = new[] { album.Artist?.Name ?? string.Empty };
         }
 
-        // Populate genre arrays: Primary first (matching Album.Genre name), then others alphabetically
+        // Populate genre arrays: Primary first (matching dto.Genre name), then others alphabetically
+        // Use dto.Genre (which is set from first track's genre) instead of album.Genre to ensure consistency
         var primaryGenre = album.AlbumGenres
-            .FirstOrDefault(ag => ag.Genre.Name == album.Genre)?.Genre;
+            .FirstOrDefault(ag => ag.Genre.Name == dto.Genre)?.Genre;
         var otherGenres = album.AlbumGenres
-            .Where(ag => ag.Genre.Name != album.Genre)
+            .Where(ag => ag.Genre.Name != dto.Genre)
             .Select(ag => ag.Genre)
             .OrderBy(g => g.Name)
             .ToList();
@@ -268,9 +269,9 @@ public static class ArtistEndpoints
         dto.Genres = allGenres.Select(g => g.Name).ToArray();
 
         // If no genres in many-to-many relationship, fallback to single-value field
-        if (dto.Genres.Length == 0 && !string.IsNullOrEmpty(album.Genre))
+        if (dto.Genres.Length == 0 && !string.IsNullOrEmpty(dto.Genre))
         {
-            dto.Genres = new[] { album.Genre };
+            dto.Genres = new[] { dto.Genre };
         }
     }
 
