@@ -44,7 +44,7 @@ namespace Audiarr.Data.Migrations
                     datetime('now')
                 FROM Tracks
                 WHERE Tracks.Genre IS NOT NULL 
-                    AND Tracks.Genre != ''
+                    AND trim(Tracks.Genre) != ''
                     AND instr(Tracks.Genre, '/') = 0
                     AND instr(Tracks.Genre, ';') = 0
                     AND instr(Tracks.Genre, ',') = 0
@@ -63,7 +63,7 @@ namespace Audiarr.Data.Migrations
                 FROM Tracks
                 INNER JOIN Genres g ON g.Name = trim(Tracks.Genre)
                 WHERE Tracks.Genre IS NOT NULL 
-                    AND Tracks.Genre != ''
+                    AND trim(Tracks.Genre) != ''
                     AND instr(Tracks.Genre, '/') = 0
                     AND instr(Tracks.Genre, ';') = 0
                     AND instr(Tracks.Genre, ',') = 0
@@ -80,7 +80,7 @@ namespace Audiarr.Data.Migrations
                     datetime('now')
                 FROM Albums
                 WHERE Albums.Genre IS NOT NULL 
-                    AND Albums.Genre != ''
+                    AND trim(Albums.Genre) != ''
                     AND instr(Albums.Genre, '/') = 0
                     AND instr(Albums.Genre, ';') = 0
                     AND instr(Albums.Genre, ',') = 0
@@ -99,7 +99,7 @@ namespace Audiarr.Data.Migrations
                 FROM Albums
                 INNER JOIN Genres g ON g.Name = trim(Albums.Genre)
                 WHERE Albums.Genre IS NOT NULL 
-                    AND Albums.Genre != ''
+                    AND trim(Albums.Genre) != ''
                     AND instr(Albums.Genre, '/') = 0
                     AND instr(Albums.Genre, ';') = 0
                     AND instr(Albums.Genre, ',') = 0
