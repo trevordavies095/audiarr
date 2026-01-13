@@ -16,6 +16,7 @@ public class AudiarrContext : DbContext
     public DbSet<Track> Tracks { get; set; } = null!;
     public DbSet<Playlist> Playlists { get; set; } = null!;
     public DbSet<PlaylistTrack> PlaylistTracks { get; set; } = null!;
+    public DbSet<TrackArtist> TrackArtists { get; set; } = null!;
     public DbSet<PlaybackQueue> PlaybackQueues { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
@@ -149,6 +150,27 @@ public class AudiarrContext : DbContext
             entity.HasOne(e => e.Track)
                 .WithMany(t => t.PlaylistTracks)
                 .HasForeignKey(e => e.TrackId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure TrackArtist entity (many-to-many join table)
+        modelBuilder.Entity<TrackArtist>(entity =>
+        {
+            entity.HasKey(e => new { e.TrackId, e.ArtistId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.TrackId);
+            entity.HasIndex(e => e.ArtistId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Track)
+                .WithMany(t => t.TrackArtists)
+                .HasForeignKey(e => e.TrackId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Artist)
+                .WithMany(a => a.TrackArtists)
+                .HasForeignKey(e => e.ArtistId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
