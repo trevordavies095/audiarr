@@ -324,11 +324,21 @@ public static class SearchEndpoints
         dto.ArtistIds = allArtists.Select(a => a.Id).ToArray();
         dto.ArtistNames = allArtists.Select(a => a.Name).ToArray();
 
-        // If no artists in many-to-many relationship, fallback to single-value field
-        if (dto.ArtistIds.Length == 0 && !string.IsNullOrEmpty(track.ArtistId))
+        // Ensure primary artist from single-value field is included first, even if not in many-to-many relationship
+        if (!string.IsNullOrEmpty(track.ArtistId))
         {
-            dto.ArtistIds = new[] { track.ArtistId };
-            dto.ArtistNames = new[] { track.Artist?.Name ?? string.Empty };
+            if (dto.ArtistIds.Length == 0)
+            {
+                // No artists in many-to-many relationship, use single-value field
+                dto.ArtistIds = new[] { track.ArtistId };
+                dto.ArtistNames = new[] { track.Artist?.Name ?? string.Empty };
+            }
+            else if (!dto.ArtistIds.Contains(track.ArtistId))
+            {
+                // Primary artist exists but is not in many-to-many relationship, prepend it
+                dto.ArtistIds = new[] { track.ArtistId }.Concat(dto.ArtistIds).ToArray();
+                dto.ArtistNames = new[] { track.Artist?.Name ?? string.Empty }.Concat(dto.ArtistNames).ToArray();
+            }
         }
 
         // Populate genre arrays: Primary first (matching Track.Genre name), then others alphabetically
@@ -346,10 +356,19 @@ public static class SearchEndpoints
 
         dto.Genres = allGenres.Select(g => g.Name).ToArray();
 
-        // If no genres in many-to-many relationship, fallback to single-value field
-        if (dto.Genres.Length == 0 && !string.IsNullOrEmpty(track.Genre))
+        // Ensure primary genre from single-value field is included first, even if not in many-to-many relationship
+        if (!string.IsNullOrEmpty(track.Genre))
         {
-            dto.Genres = new[] { track.Genre };
+            if (dto.Genres.Length == 0)
+            {
+                // No genres in many-to-many relationship, use single-value field
+                dto.Genres = new[] { track.Genre };
+            }
+            else if (!dto.Genres.Contains(track.Genre))
+            {
+                // Primary genre exists but is not in many-to-many relationship, prepend it
+                dto.Genres = new[] { track.Genre }.Concat(dto.Genres).ToArray();
+            }
         }
     }
 
