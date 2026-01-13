@@ -3,9 +3,11 @@ using System.Text;
 using Audiarr.Data.Context;
 using Audiarr.Core.Entities;
 using Audiarr.Core.Interfaces;
+using Audiarr.Core.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TagLib;
 using File = System.IO.File;
 
@@ -16,17 +18,19 @@ public class LibraryScanner : ILibraryScanner
     private readonly AudiarrContext _context;
     private readonly ILogger<LibraryScanner> _logger;
     private readonly IHostEnvironment _environment;
+    private readonly MultiValuedTagsOptions _multiValuedTagsOptions;
     private readonly HashSet<string> _audioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".alac", ".ape", ".wv", ".mka"
     };
     private readonly string[] _artworkFileNames = { "cover.jpg", "folder.jpg", "album.jpg", "front.jpg", "cover.png", "folder.png", "album.png", "front.png" };
 
-    public LibraryScanner(AudiarrContext context, ILogger<LibraryScanner> logger, IHostEnvironment environment)
+    public LibraryScanner(AudiarrContext context, ILogger<LibraryScanner> logger, IHostEnvironment environment, IOptions<MultiValuedTagsOptions> multiValuedTagsOptions)
     {
         _context = context;
         _logger = logger;
         _environment = environment;
+        _multiValuedTagsOptions = multiValuedTagsOptions.Value;
     }
 
     public async Task<ScanResult> ScanAsync(string libraryPath, IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
@@ -122,23 +126,33 @@ public class LibraryScanner : ILibraryScanner
             // Check if track already exists
             var existingTrack = await _context.Tracks
                 .Include(t => t.Album)
-                .ThenInclude(a => a!.Artist)
+                    .ThenInclude(a => a!.Artist)
+                .Include(t => t.Album)
+                    .ThenInclude(a => a!.AlbumArtists)
                 .Include(t => t.Artist)
+                .Include(t => t.TrackArtists)
                 .FirstOrDefaultAsync(t => t.FileHash == fileHash, cancellationToken);
 
             using var file = TagLib.File.Create(filePath);
             var tag = file.Tag;
             var properties = file.Properties;
 
-            // Get or create artist
-            var artistName = !string.IsNullOrWhiteSpace(tag.FirstAlbumArtist) ? tag.FirstAlbumArtist :
-                            !string.IsNullOrWhiteSpace(tag.FirstPerformer) ? tag.FirstPerformer : "Unknown Artist";
+            // Parse album artists (prefer AlbumArtists, fallback to FirstAlbumArtist)
+            var albumArtistNames = ParseArtists(tag.AlbumArtists, tag.FirstAlbumArtist);
+            var albumArtists = await GetOrCreateArtistsAsync(albumArtistNames, cancellationToken);
+            var primaryAlbumArtist = albumArtists[0];
 
-            var artist = await GetOrCreateArtistAsync(artistName, cancellationToken);
-
-            // Get or create album
+            // Get or create album (using primary artist ID for lookup compatibility)
             var albumTitle = !string.IsNullOrWhiteSpace(tag.Album) ? tag.Album : "Unknown Album";
-            var album = await GetOrCreateAlbumAsync(albumTitle, artist.Id, tag.Year, cancellationToken);
+            var album = await GetOrCreateAlbumAsync(albumTitle, primaryAlbumArtist.Id, tag.Year, cancellationToken);
+
+            // Update album artist relationships
+            await UpdateAlbumArtistsAsync(album, albumArtists, cancellationToken);
+
+            // Parse track artists (prefer Performers, fallback to FirstPerformer)
+            var trackArtistNames = ParseArtists(tag.Performers, tag.FirstPerformer);
+            var trackArtists = await GetOrCreateArtistsAsync(trackArtistNames, cancellationToken);
+            var primaryTrackArtist = trackArtists[0];
 
             // Extract cover art if available
             if (album.CoverArtPath == null)
@@ -170,7 +184,6 @@ public class LibraryScanner : ILibraryScanner
                 // Update existing track
                 existingTrack.Title = !string.IsNullOrWhiteSpace(tag.Title) ? tag.Title : Path.GetFileNameWithoutExtension(filePath);
                 existingTrack.AlbumId = album.Id;
-                existingTrack.ArtistId = artist.Id;
                 existingTrack.TrackNumber = tag.Track > 0 ? (int)tag.Track : null;
                 existingTrack.DiscNumber = tag.Disc > 0 ? (int)tag.Disc : null;
                 existingTrack.DurationMs = (int)(properties.Duration.TotalMilliseconds);
@@ -180,9 +193,13 @@ public class LibraryScanner : ILibraryScanner
                 existingTrack.FileSizeBytes = new FileInfo(filePath).Length;
                 existingTrack.UpdatedAt = DateTime.UtcNow;
 
+                // Update track artist relationships (this also sets ArtistId for backward compatibility)
+                await UpdateTrackArtistsAsync(existingTrack, trackArtists, cancellationToken);
+
                 // Entity is already tracked from the Include query, no need to call Update()
                 result.UpdatedTracks = 1;
-                _logger.LogDebug("Updated track: {Title} by {Artist}", existingTrack.Title, artistName);
+                var artistNames = string.Join(", ", trackArtists.Select(a => a.Name));
+                _logger.LogDebug("Updated track: {Title} by {Artists}", existingTrack.Title, artistNames);
             }
             else
             {
@@ -191,7 +208,7 @@ public class LibraryScanner : ILibraryScanner
                 {
                     Title = !string.IsNullOrWhiteSpace(tag.Title) ? tag.Title : Path.GetFileNameWithoutExtension(filePath),
                     AlbumId = album.Id,
-                    ArtistId = artist.Id,
+                    ArtistId = primaryTrackArtist.Id, // Set primary artist for backward compatibility
                     TrackNumber = tag.Track > 0 ? (int)tag.Track : null,
                     DiscNumber = tag.Disc > 0 ? (int)tag.Disc : null,
                     DurationMs = (int)(properties.Duration.TotalMilliseconds),
@@ -205,8 +222,14 @@ public class LibraryScanner : ILibraryScanner
                 };
 
                 await _context.Tracks.AddAsync(track, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken); // Save to get track ID
+
+                // Update track artist relationships (this also sets ArtistId for backward compatibility)
+                await UpdateTrackArtistsAsync(track, trackArtists, cancellationToken);
+
                 result.NewTracks = 1;
-                _logger.LogDebug("Added new track: {Title} by {Artist}", track.Title, artistName);
+                var artistNames = string.Join(", ", trackArtists.Select(a => a.Name));
+                _logger.LogDebug("Added new track: {Title} by {Artists}", track.Title, artistNames);
             }
 
             result.ProcessedFiles = 1;
@@ -250,10 +273,182 @@ public class LibraryScanner : ILibraryScanner
         return artist;
     }
 
+    /// <summary>
+    /// Gets or creates multiple artists in batch.
+    /// </summary>
+    /// <param name="artistNames">List of artist names to get or create</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of Artist entities in the same order as input</returns>
+    private async Task<List<Artist>> GetOrCreateArtistsAsync(List<string> artistNames, CancellationToken cancellationToken)
+    {
+        var artists = new List<Artist>();
+        var normalizedNames = artistNames.Select(n => NormalizeString(n)).ToList();
+
+        // Batch lookup existing artists
+        var existingArtists = await _context.Artists
+            .Where(a => normalizedNames.Contains(a.NameNormalized))
+            .ToListAsync(cancellationToken);
+
+        var existingByNormalized = existingArtists.ToDictionary(a => a.NameNormalized);
+
+        // Create missing artists
+        var artistsToCreate = new List<Artist>();
+        for (int i = 0; i < artistNames.Count; i++)
+        {
+            var normalized = normalizedNames[i];
+            var name = artistNames[i];
+
+            if (existingByNormalized.TryGetValue(normalized, out var existingArtist))
+            {
+                artists.Add(existingArtist);
+            }
+            else
+            {
+                var newArtist = new Artist
+                {
+                    Name = name,
+                    SortName = GetSortName(name),
+                    NameNormalized = normalized
+                };
+                artistsToCreate.Add(newArtist);
+                artists.Add(newArtist);
+            }
+        }
+
+        // Batch create new artists
+        if (artistsToCreate.Count > 0)
+        {
+            await _context.Artists.AddRangeAsync(artistsToCreate, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken); // Save immediately to prevent duplicates
+            _logger.LogDebug("Created {Count} new artists", artistsToCreate.Count);
+        }
+
+        return artists;
+    }
+
+    /// <summary>
+    /// Updates TrackArtist relationships for a track, adding new ones and removing old ones.
+    /// Sets the primary artist (first in list) to track.ArtistId for backward compatibility.
+    /// </summary>
+    private async Task UpdateTrackArtistsAsync(Track track, List<Artist> artists, CancellationToken cancellationToken)
+    {
+        // Ensure track has at least one artist
+        if (artists.Count == 0)
+        {
+            var unknownArtist = await GetOrCreateArtistAsync("Unknown Artist", cancellationToken);
+            artists = new List<Artist> { unknownArtist };
+        }
+
+        // Set primary artist for backward compatibility
+        track.ArtistId = artists[0].Id;
+
+        // Load existing TrackArtists if not already loaded
+        if (track.TrackArtists == null || !_context.Entry(track).Collection(t => t.TrackArtists).IsLoaded)
+        {
+            await _context.Entry(track)
+                .Collection(t => t.TrackArtists)
+                .LoadAsync(cancellationToken);
+        }
+
+        var existingArtistIds = track.TrackArtists.Select(ta => ta.ArtistId).ToHashSet();
+        var newArtistIds = artists.Select(a => a.Id).ToHashSet();
+
+        // Remove relationships that are no longer in the new list
+        var toRemove = track.TrackArtists
+            .Where(ta => !newArtistIds.Contains(ta.ArtistId))
+            .ToList();
+
+        foreach (var trackArtist in toRemove)
+        {
+            _context.Remove(trackArtist);
+        }
+
+        // Add new relationships that don't exist
+        var toAdd = artists
+            .Where(a => !existingArtistIds.Contains(a.Id))
+            .Select(a => new TrackArtist
+            {
+                TrackId = track.Id,
+                ArtistId = a.Id
+            })
+            .ToList();
+
+        if (toAdd.Count > 0)
+        {
+            await _context.TrackArtists.AddRangeAsync(toAdd, cancellationToken);
+        }
+
+        if (toRemove.Count > 0 || toAdd.Count > 0)
+        {
+            _logger.LogDebug("Updated TrackArtist relationships for track {TrackId}: removed {Removed}, added {Added}", 
+                track.Id, toRemove.Count, toAdd.Count);
+        }
+    }
+
+    /// <summary>
+    /// Updates AlbumArtist relationships for an album, adding new ones and removing old ones.
+    /// Sets the primary artist (first in list) to album.ArtistId for backward compatibility.
+    /// </summary>
+    private async Task UpdateAlbumArtistsAsync(Album album, List<Artist> artists, CancellationToken cancellationToken)
+    {
+        // Ensure album has at least one artist
+        if (artists.Count == 0)
+        {
+            var unknownArtist = await GetOrCreateArtistAsync("Unknown Artist", cancellationToken);
+            artists = new List<Artist> { unknownArtist };
+        }
+
+        // Set primary artist for backward compatibility
+        album.ArtistId = artists[0].Id;
+
+        // Load existing AlbumArtists if not already loaded
+        if (album.AlbumArtists == null || !_context.Entry(album).Collection(a => a.AlbumArtists).IsLoaded)
+        {
+            await _context.Entry(album)
+                .Collection(a => a.AlbumArtists)
+                .LoadAsync(cancellationToken);
+        }
+
+        var existingArtistIds = album.AlbumArtists.Select(aa => aa.ArtistId).ToHashSet();
+        var newArtistIds = artists.Select(a => a.Id).ToHashSet();
+
+        // Remove relationships that are no longer in the new list
+        var toRemove = album.AlbumArtists
+            .Where(aa => !newArtistIds.Contains(aa.ArtistId))
+            .ToList();
+
+        foreach (var albumArtist in toRemove)
+        {
+            _context.Remove(albumArtist);
+        }
+
+        // Add new relationships that don't exist
+        var toAdd = artists
+            .Where(a => !existingArtistIds.Contains(a.Id))
+            .Select(a => new AlbumArtist
+            {
+                AlbumId = album.Id,
+                ArtistId = a.Id
+            })
+            .ToList();
+
+        if (toAdd.Count > 0)
+        {
+            await _context.AlbumArtists.AddRangeAsync(toAdd, cancellationToken);
+        }
+
+        if (toRemove.Count > 0 || toAdd.Count > 0)
+        {
+            _logger.LogDebug("Updated AlbumArtist relationships for album {AlbumId}: removed {Removed}, added {Added}", 
+                album.Id, toRemove.Count, toAdd.Count);
+        }
+    }
+
     private async Task<Album> GetOrCreateAlbumAsync(string title, string artistId, uint year, CancellationToken cancellationToken)
     {
         var normalized = NormalizeString(title);
         var album = await _context.Albums
+            .Include(a => a.AlbumArtists)
             .FirstOrDefaultAsync(a => a.TitleNormalized == normalized && a.ArtistId == artistId, cancellationToken);
 
         if (album == null)
@@ -456,5 +651,87 @@ public class LibraryScanner : ILibraryScanner
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// Parses artist names from TagLib tags, preferring native multi-valued tags over delimiter parsing.
+    /// </summary>
+    /// <param name="artists">Native multi-valued artists array from tag (e.g., tag.Performers or tag.AlbumArtists)</param>
+    /// <param name="singleValue">Single-value fallback (e.g., tag.FirstPerformer or tag.FirstAlbumArtist)</param>
+    /// <returns>List of artist names, trimmed and deduplicated</returns>
+    private List<string> ParseArtists(string[] artists, string? singleValue)
+    {
+        var result = new List<string>();
+        bool usedNativeTags = false;
+
+        // Priority 1: Use native multi-valued tags if arrays are non-empty
+        if (artists != null && artists.Length > 0)
+        {
+            var validArtists = artists
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())
+                .Distinct()
+                .ToList();
+
+            if (validArtists.Count > 0)
+            {
+                result = validArtists;
+                usedNativeTags = true;
+                if (result.Count > 1)
+                {
+                    _logger.LogDebug("Found {Count} artists from native multi-valued tags", result.Count);
+                }
+            }
+        }
+
+        // Priority 2: If arrays are empty, fallback to single-value tags
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(singleValue))
+        {
+            var trimmedValue = singleValue.Trim();
+
+            // Priority 3: If single value contains delimiters and delimiter parsing is enabled, parse by delimiter
+            if (_multiValuedTagsOptions.EnableDelimiterParsing && trimmedValue.Length > 0)
+            {
+                // Try delimiters in order of preference
+                char? delimiter = null;
+                foreach (var delim in _multiValuedTagsOptions.PreferredDelimiters)
+                {
+                    if (delim.Length == 1 && trimmedValue.Contains(delim[0]))
+                    {
+                        delimiter = delim[0];
+                        break;
+                    }
+                }
+
+                if (delimiter.HasValue)
+                {
+                    result = trimmedValue
+                        .Split(delimiter.Value, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(a => a.Trim())
+                        .Where(a => !string.IsNullOrWhiteSpace(a))
+                        .Distinct()
+                        .ToList();
+
+                    if (result.Count > 1)
+                    {
+                        _logger.LogDebug("Parsed {Count} artists from delimiter-separated value using '{Delimiter}' delimiter", result.Count, delimiter.Value);
+                    }
+                }
+            }
+
+            // If no delimiter found or delimiter parsing disabled, treat as single artist
+            if (result.Count == 0)
+            {
+                result = new List<string> { trimmedValue };
+            }
+        }
+
+        // Fallback to "Unknown Artist" if no artists found
+        if (result.Count == 0)
+        {
+            result = new List<string> { "Unknown Artist" };
+        }
+
+        return result;
     }
 }
