@@ -192,5 +192,34 @@ namespace Audiarr.Data.Migrations
                 .Replace("'", "")
                 .Replace("\"", "");
         }
+
+        /// <summary>
+        /// Checks if a genre string would produce any results after parsing.
+        /// Returns false for delimiter-only strings (e.g., "/", ";", ",") that would
+        /// result in an empty list after parsing.
+        /// </summary>
+        public static bool WouldProduceGenres(string genreString)
+        {
+            if (string.IsNullOrWhiteSpace(genreString))
+                return false;
+            
+            // Try delimiters in order of preference: /, ;, ,
+            char[] delimiters = { '/', ';', ',' };
+            char delimiter = delimiters.FirstOrDefault(d => genreString.Contains(d));
+            
+            if (delimiter != '\0')
+            {
+                // If delimiter found, check if splitting produces any non-empty results
+                var parts = genreString
+                    .Split(delimiter, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(g => g.Trim())
+                    .Where(g => !string.IsNullOrWhiteSpace(g));
+                
+                return parts.Any();
+            }
+            
+            // No delimiter found, treat as single genre (will produce one result)
+            return !string.IsNullOrWhiteSpace(genreString.Trim());
+        }
     }
 }
