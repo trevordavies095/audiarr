@@ -193,6 +193,76 @@ try
             await context.Database.MigrateAsync();
             Log.Information("Database migrations applied successfully");
 
+            // Run data migration for genres (complex C# parsing logic)
+            // This handles delimiter-separated genre strings that couldn't be handled in SQL
+            // The SQL migration only handles single-value genres (no delimiters)
+            try
+            {
+                // Check if there are tracks/albums with delimiter-separated genres that need migration
+                // The SQL migration handles single-value genres, but delimiter-separated genres
+                // (like "Rock/Metal") require C# parsing logic
+                // Note: We filter out delimiter-only strings (e.g., "/", ";", ",") that would
+                // produce no results after parsing, to prevent infinite migration loops
+                var tracksWithDelimitedGenres = await context.Tracks
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Genre) && 
+                        (t.Genre!.Contains('/') || t.Genre!.Contains(';') || t.Genre!.Contains(',')))
+                    .ToListAsync();
+                var tracksWithValidDelimitedGenres = tracksWithDelimitedGenres
+                    .Count(t => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(t.Genre!));
+                
+                var albumsWithDelimitedGenres = await context.Albums
+                    .Where(a => !string.IsNullOrWhiteSpace(a.Genre) && 
+                        (a.Genre!.Contains('/') || a.Genre!.Contains(';') || a.Genre!.Contains(',')))
+                    .ToListAsync();
+                var albumsWithValidDelimitedGenres = albumsWithDelimitedGenres
+                    .Count(a => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(a.Genre!));
+                
+                // Also check if there are any tracks/albums with genres that haven't been migrated at all
+                // (in case the SQL migration didn't run or handle all single-value genres)
+                // We need to check for genres that would actually produce results (not delimiter-only strings)
+                var allTracksWithGenres = await context.Tracks
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Genre))
+                    .ToListAsync();
+                var tracksWithValidGenres = allTracksWithGenres
+                    .Count(t => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(t.Genre!));
+                
+                var allAlbumsWithGenres = await context.Albums
+                    .Where(a => !string.IsNullOrWhiteSpace(a.Genre))
+                    .ToListAsync();
+                var albumsWithValidGenres = allAlbumsWithGenres
+                    .Count(a => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(a.Genre!));
+                
+                var trackGenresCount = await context.TrackGenres.CountAsync();
+                var albumGenresCount = await context.AlbumGenres.CountAsync();
+                
+                // Run migration if:
+                // 1. There are delimiter-separated genres that need C# parsing, OR
+                // 2. There are valid genres (that would produce results) but no join table entries yet (initial migration case)
+                // The helper is idempotent, so it's safe to run even if some genres are already migrated
+                // Note: We check for valid genres (not delimiter-only strings) to prevent infinite loops
+                bool needsMigration = (tracksWithValidDelimitedGenres > 0 || albumsWithValidDelimitedGenres > 0) ||
+                    (tracksWithValidGenres > 0 && trackGenresCount == 0) ||
+                    (albumsWithValidGenres > 0 && albumGenresCount == 0);
+                
+                if (needsMigration)
+                {
+                    Log.Information("Starting genre data migration for {TrackCount} tracks ({DelimitedTrackCount} with delimiters) and {AlbumCount} albums ({DelimitedAlbumCount} with delimiters)...", 
+                        tracksWithValidGenres, tracksWithValidDelimitedGenres, albumsWithValidGenres, albumsWithValidDelimitedGenres);
+                    Audiarr.Data.Migrations.DataMigrationHelper.MigrateGenres(context, "Tracks", "TrackGenres", "TrackId");
+                    Audiarr.Data.Migrations.DataMigrationHelper.MigrateGenres(context, "Albums", "AlbumGenres", "AlbumId");
+                    Log.Information("Genre data migration completed successfully");
+                }
+                else
+                {
+                    Log.Debug("Genre data migration skipped - genres already migrated");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error during genre data migration - this is non-fatal, migration will continue");
+                // Don't throw - allow app to start even if genre migration fails
+            }
+
             // Ensure admin user exists
             var userService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
             var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");

@@ -3,6 +3,7 @@ using System;
 using Audiarr.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Audiarr.Data.Migrations
 {
     [DbContext(typeof(AudiarrContext))]
-    partial class AudiarrContextModelSnapshot : ModelSnapshot
+    [Migration("20260113143522_AddGenreEntity")]
+    partial class AddGenreEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -62,40 +65,6 @@ namespace Audiarr.Data.Migrations
                     b.HasIndex("Title");
 
                     b.ToTable("Albums");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.AlbumArtist", b =>
-                {
-                    b.Property<string>("AlbumId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ArtistId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("AlbumId", "ArtistId");
-
-                    b.HasIndex("AlbumId");
-
-                    b.HasIndex("ArtistId");
-
-                    b.ToTable("AlbumArtists");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.AlbumGenre", b =>
-                {
-                    b.Property<string>("AlbumId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("GenreId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("AlbumId", "GenreId");
-
-                    b.HasIndex("AlbumId");
-
-                    b.HasIndex("GenreId");
-
-                    b.ToTable("AlbumGenres");
                 });
 
             modelBuilder.Entity("Audiarr.Core.Entities.Artist", b =>
@@ -483,40 +452,6 @@ namespace Audiarr.Data.Migrations
                     b.ToTable("Tracks");
                 });
 
-            modelBuilder.Entity("Audiarr.Core.Entities.TrackArtist", b =>
-                {
-                    b.Property<string>("TrackId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ArtistId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("TrackId", "ArtistId");
-
-                    b.HasIndex("ArtistId");
-
-                    b.HasIndex("TrackId");
-
-                    b.ToTable("TrackArtists");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.TrackGenre", b =>
-                {
-                    b.Property<string>("TrackId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("GenreId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("TrackId", "GenreId");
-
-                    b.HasIndex("GenreId");
-
-                    b.HasIndex("TrackId");
-
-                    b.ToTable("TrackGenres");
-                });
-
             modelBuilder.Entity("Audiarr.Core.Entities.User", b =>
                 {
                     b.Property<string>("Id")
@@ -589,44 +524,6 @@ namespace Audiarr.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Artist");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.AlbumArtist", b =>
-                {
-                    b.HasOne("Audiarr.Core.Entities.Album", "Album")
-                        .WithMany("AlbumArtists")
-                        .HasForeignKey("AlbumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Audiarr.Core.Entities.Artist", "Artist")
-                        .WithMany("AlbumArtists")
-                        .HasForeignKey("ArtistId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Album");
-
-                    b.Navigation("Artist");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.AlbumGenre", b =>
-                {
-                    b.HasOne("Audiarr.Core.Entities.Album", "Album")
-                        .WithMany("AlbumGenres")
-                        .HasForeignKey("AlbumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Audiarr.Core.Entities.Genre", "Genre")
-                        .WithMany("AlbumGenres")
-                        .HasForeignKey("GenreId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Album");
-
-                    b.Navigation("Genre");
                 });
 
             modelBuilder.Entity("Audiarr.Core.Entities.AuditLog", b =>
@@ -725,69 +622,16 @@ namespace Audiarr.Data.Migrations
                     b.Navigation("Artist");
                 });
 
-            modelBuilder.Entity("Audiarr.Core.Entities.TrackArtist", b =>
-                {
-                    b.HasOne("Audiarr.Core.Entities.Artist", "Artist")
-                        .WithMany("TrackArtists")
-                        .HasForeignKey("ArtistId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Audiarr.Core.Entities.Track", "Track")
-                        .WithMany("TrackArtists")
-                        .HasForeignKey("TrackId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Artist");
-
-                    b.Navigation("Track");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.TrackGenre", b =>
-                {
-                    b.HasOne("Audiarr.Core.Entities.Genre", "Genre")
-                        .WithMany("TrackGenres")
-                        .HasForeignKey("GenreId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Audiarr.Core.Entities.Track", "Track")
-                        .WithMany("TrackGenres")
-                        .HasForeignKey("TrackId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Genre");
-
-                    b.Navigation("Track");
-                });
-
             modelBuilder.Entity("Audiarr.Core.Entities.Album", b =>
                 {
-                    b.Navigation("AlbumArtists");
-
-                    b.Navigation("AlbumGenres");
-
                     b.Navigation("Tracks");
                 });
 
             modelBuilder.Entity("Audiarr.Core.Entities.Artist", b =>
                 {
-                    b.Navigation("AlbumArtists");
-
                     b.Navigation("Albums");
 
-                    b.Navigation("TrackArtists");
-
                     b.Navigation("Tracks");
-                });
-
-            modelBuilder.Entity("Audiarr.Core.Entities.Genre", b =>
-                {
-                    b.Navigation("AlbumGenres");
-
-                    b.Navigation("TrackGenres");
                 });
 
             modelBuilder.Entity("Audiarr.Core.Entities.Playlist", b =>
@@ -798,10 +642,6 @@ namespace Audiarr.Data.Migrations
             modelBuilder.Entity("Audiarr.Core.Entities.Track", b =>
                 {
                     b.Navigation("PlaylistTracks");
-
-                    b.Navigation("TrackArtists");
-
-                    b.Navigation("TrackGenres");
                 });
 
             modelBuilder.Entity("Audiarr.Core.Entities.User", b =>

@@ -11,10 +11,15 @@ public class AudiarrContext : DbContext
 
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Artist> Artists { get; set; } = null!;
+    public DbSet<Genre> Genres { get; set; } = null!;
     public DbSet<Album> Albums { get; set; } = null!;
     public DbSet<Track> Tracks { get; set; } = null!;
     public DbSet<Playlist> Playlists { get; set; } = null!;
     public DbSet<PlaylistTrack> PlaylistTracks { get; set; } = null!;
+    public DbSet<TrackArtist> TrackArtists { get; set; } = null!;
+    public DbSet<AlbumArtist> AlbumArtists { get; set; } = null!;
+    public DbSet<TrackGenre> TrackGenres { get; set; } = null!;
+    public DbSet<AlbumGenre> AlbumGenres { get; set; } = null!;
     public DbSet<PlaybackQueue> PlaybackQueues { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
@@ -43,6 +48,16 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => e.NormalizedName);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.SortName).HasMaxLength(200);
+            entity.Property(e => e.NormalizedName).HasMaxLength(200);
+        });
+
+        // Configure Genre entity
+        modelBuilder.Entity<Genre>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.NormalizedName);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.NormalizedName).HasMaxLength(200);
         });
 
@@ -138,6 +153,90 @@ public class AudiarrContext : DbContext
             entity.HasOne(e => e.Track)
                 .WithMany(t => t.PlaylistTracks)
                 .HasForeignKey(e => e.TrackId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure TrackArtist entity (many-to-many join table)
+        modelBuilder.Entity<TrackArtist>(entity =>
+        {
+            entity.HasKey(e => new { e.TrackId, e.ArtistId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.TrackId);
+            entity.HasIndex(e => e.ArtistId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Track)
+                .WithMany(t => t.TrackArtists)
+                .HasForeignKey(e => e.TrackId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Artist)
+                .WithMany(a => a.TrackArtists)
+                .HasForeignKey(e => e.ArtistId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AlbumArtist entity (many-to-many join table)
+        modelBuilder.Entity<AlbumArtist>(entity =>
+        {
+            entity.HasKey(e => new { e.AlbumId, e.ArtistId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.AlbumId);
+            entity.HasIndex(e => e.ArtistId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Album)
+                .WithMany(a => a.AlbumArtists)
+                .HasForeignKey(e => e.AlbumId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Artist)
+                .WithMany(a => a.AlbumArtists)
+                .HasForeignKey(e => e.ArtistId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure TrackGenre entity (many-to-many join table)
+        modelBuilder.Entity<TrackGenre>(entity =>
+        {
+            entity.HasKey(e => new { e.TrackId, e.GenreId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.TrackId);
+            entity.HasIndex(e => e.GenreId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Track)
+                .WithMany(t => t.TrackGenres)
+                .HasForeignKey(e => e.TrackId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Genre)
+                .WithMany(g => g.TrackGenres)
+                .HasForeignKey(e => e.GenreId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AlbumGenre entity (many-to-many join table)
+        modelBuilder.Entity<AlbumGenre>(entity =>
+        {
+            entity.HasKey(e => new { e.AlbumId, e.GenreId });
+
+            // Indexes for performance
+            entity.HasIndex(e => e.AlbumId);
+            entity.HasIndex(e => e.GenreId);
+
+            // Relationships with cascade delete
+            entity.HasOne(e => e.Album)
+                .WithMany(a => a.AlbumGenres)
+                .HasForeignKey(e => e.AlbumId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Genre)
+                .WithMany(g => g.AlbumGenres)
+                .HasForeignKey(e => e.GenreId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
