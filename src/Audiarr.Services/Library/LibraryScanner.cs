@@ -331,6 +331,8 @@ public class LibraryScanner : ILibraryScanner
                 };
                 artistsToCreate.Add(newArtist);
                 artists.Add(newArtist);
+                // Update dictionary to prevent duplicate creation for case-variant duplicates in the same input list
+                existingByNormalized[normalized] = newArtist;
             }
         }
 
@@ -388,6 +390,8 @@ public class LibraryScanner : ILibraryScanner
                 };
                 genresToCreate.Add(newGenre);
                 genres.Add(newGenre);
+                // Update dictionary to prevent duplicate creation for case-variant duplicates in the same input list
+                existingByNormalized[normalized] = newGenre;
             }
         }
 
