@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Audiarr.Data.Context;
 using Audiarr.Core.DTOs;
+using Audiarr.Core.Entities;
 
 namespace Audiarr.Api.Endpoints;
 
@@ -22,6 +23,10 @@ public static class TrackEndpoints
             var query = db.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
+                .Include(t => t.TrackArtists)
+                    .ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .OrderBy(t => t.Artist.SortName ?? t.Artist.Name)
                 .ThenBy(t => t.Album.Year)
                 .ThenBy(t => t.Album.Title)
@@ -30,28 +35,37 @@ public static class TrackEndpoints
 
             var total = await query.CountAsync();
 
-            var tracks = await query
+            // Load full entities to populate multi-valued tags
+            var tracksData = await query
                 .Skip((page - 1) * limit)
                 .Take(limit)
-                .Select(t => new TrackDto
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
-                    AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
-                    TrackNumber = t.TrackNumber,
-                    DiscNumber = t.DiscNumber,
-                    DurationMs = t.DurationMs,
-                    Genre = t.Genre,
-                    Year = t.Year,
-                    FileSize = t.FileSize,
-                    Bitrate = t.Bitrate,
-                    Codec = t.Codec,
-                    FilePath = t.FilePath
-                })
                 .ToListAsync();
+
+            // Map to DTOs and populate arrays
+            var tracks = tracksData.Select(t => new TrackDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                ArtistId = t.ArtistId,
+                ArtistName = t.Artist.Name,
+                AlbumId = t.AlbumId,
+                AlbumTitle = t.Album.Title,
+                TrackNumber = t.TrackNumber,
+                DiscNumber = t.DiscNumber,
+                DurationMs = t.DurationMs,
+                Genre = t.Genre,
+                Year = t.Year,
+                FileSize = t.FileSize,
+                Bitrate = t.Bitrate,
+                Codec = t.Codec,
+                FilePath = t.FilePath
+            }).ToList();
+
+            // Populate multi-valued tag arrays
+            foreach (var track in tracksData.Zip(tracks, (t, dto) => new { Track = t, Dto = dto }))
+            {
+                PopulateMultiValuedTags(track.Track, track.Dto);
+            }
 
             return Results.Ok(new
             {
@@ -73,38 +87,71 @@ public static class TrackEndpoints
             var track = await db.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
+                .Include(t => t.TrackArtists)
+                    .ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .Where(t => t.Id == id)
-                .Select(t => new
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
-                    AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
-                    TrackNumber = t.TrackNumber,
-                    DiscNumber = t.DiscNumber,
-                    DurationMs = t.DurationMs,
-                    Genre = t.Genre,
-                    Year = t.Year,
-                    FileSize = t.FileSize,
-                    Bitrate = t.Bitrate,
-                    Codec = t.Codec,
-                    SampleRate = t.SampleRate,
-                    Channels = t.Channels,
-                    FilePath = t.FilePath,
-                    FileHash = t.FileHash,
-                    AddedDate = t.AddedDate,
-                    ModifiedDate = t.ModifiedDate,
-                    PlayCount = t.PlayCount,
-                    LastPlayedDate = t.LastPlayedDate
-                })
                 .FirstOrDefaultAsync();
 
             if (track == null)
                 return Results.NotFound(new { error = "Track not found" });
 
-            return Results.Ok(track);
+            var dto = new TrackDto
+            {
+                Id = track.Id,
+                Title = track.Title,
+                ArtistId = track.ArtistId,
+                ArtistName = track.Artist.Name,
+                AlbumId = track.AlbumId,
+                AlbumTitle = track.Album.Title,
+                TrackNumber = track.TrackNumber,
+                DiscNumber = track.DiscNumber,
+                DurationMs = track.DurationMs,
+                Genre = track.Genre,
+                Year = track.Year,
+                FileSize = track.FileSize,
+                Bitrate = track.Bitrate,
+                Codec = track.Codec,
+                FilePath = track.FilePath
+            };
+
+            PopulateMultiValuedTags(track, dto);
+
+            // Return extended response with additional fields for backward compatibility
+            var result = new
+            {
+                dto.Id,
+                dto.Title,
+                dto.ArtistId,
+                dto.ArtistName,
+                dto.AlbumId,
+                dto.AlbumTitle,
+                dto.TrackNumber,
+                dto.DiscNumber,
+                dto.DurationMs,
+                dto.Genre,
+                dto.Year,
+                dto.FileSize,
+                dto.Bitrate,
+                dto.Codec,
+                SampleRate = track.SampleRate,
+                Channels = track.Channels,
+                FilePath = dto.FilePath,
+                FileHash = track.FileHash,
+                AddedDate = track.AddedDate,
+                ModifiedDate = track.ModifiedDate,
+                PlayCount = track.PlayCount,
+                LastPlayedDate = track.LastPlayedDate,
+                // Multi-valued tag arrays
+                dto.ArtistIds,
+                dto.ArtistNames,
+                dto.Genres,
+                dto.PrimaryArtistId,
+                dto.PrimaryArtistName
+            };
+
+            return Results.Ok(result);
         })
         .WithName("GetTrackById")
         .WithOpenApi()
@@ -152,31 +199,42 @@ public static class TrackEndpoints
         {
             if (limit < 1 || limit > 100) limit = 20;
 
-            var tracks = await db.Tracks
+            var tracksData = await db.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
+                .Include(t => t.TrackArtists)
+                    .ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .Where(t => t.LastPlayedDate != null)
                 .OrderByDescending(t => t.LastPlayedDate)
                 .Take(limit)
-                .Select(t => new TrackDto
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
-                    AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
-                    TrackNumber = t.TrackNumber,
-                    DiscNumber = t.DiscNumber,
-                    DurationMs = t.DurationMs,
-                    Genre = t.Genre,
-                    Year = t.Year,
-                    FileSize = t.FileSize,
-                    Bitrate = t.Bitrate,
-                    Codec = t.Codec,
-                    FilePath = t.FilePath
-                })
                 .ToListAsync();
+
+            var tracks = tracksData.Select(t => new TrackDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                ArtistId = t.ArtistId,
+                ArtistName = t.Artist.Name,
+                AlbumId = t.AlbumId,
+                AlbumTitle = t.Album.Title,
+                TrackNumber = t.TrackNumber,
+                DiscNumber = t.DiscNumber,
+                DurationMs = t.DurationMs,
+                Genre = t.Genre,
+                Year = t.Year,
+                FileSize = t.FileSize,
+                Bitrate = t.Bitrate,
+                Codec = t.Codec,
+                FilePath = t.FilePath
+            }).ToList();
+
+            // Populate multi-valued tag arrays
+            foreach (var track in tracksData.Zip(tracks, (t, dto) => new { Track = t, Dto = dto }))
+            {
+                PopulateMultiValuedTags(track.Track, track.Dto);
+            }
 
             return Results.Ok(new { data = tracks });
         })
@@ -190,29 +248,42 @@ public static class TrackEndpoints
         {
             if (limit < 1 || limit > 100) limit = 50;
 
-            var tracks = await db.Tracks
+            var tracksData = await db.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
+                .Include(t => t.TrackArtists)
+                    .ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .Where(t => t.PlayCount > 0)
                 .OrderByDescending(t => t.PlayCount)
                 .Take(limit)
-                .Select(t => new
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
-                    AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
-                    TrackNumber = t.TrackNumber,
-                    DiscNumber = t.DiscNumber,
-                    DurationMs = t.DurationMs,
-                    Genre = t.Genre,
-                    Year = t.Year,
-                    PlayCount = t.PlayCount,
-                    LastPlayedDate = t.LastPlayedDate
-                })
                 .ToListAsync();
+
+            var tracks = tracksData.Select(t => new TrackDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                ArtistId = t.ArtistId,
+                ArtistName = t.Artist.Name,
+                AlbumId = t.AlbumId,
+                AlbumTitle = t.Album.Title,
+                TrackNumber = t.TrackNumber,
+                DiscNumber = t.DiscNumber,
+                DurationMs = t.DurationMs,
+                Genre = t.Genre,
+                Year = t.Year,
+                FileSize = t.FileSize,
+                Bitrate = t.Bitrate,
+                Codec = t.Codec,
+                FilePath = t.FilePath
+            }).ToList();
+
+            // Populate multi-valued tag arrays
+            foreach (var track in tracksData.Zip(tracks, (t, dto) => new { Track = t, Dto = dto }))
+            {
+                PopulateMultiValuedTags(track.Track, track.Dto);
+            }
 
             return Results.Ok(new { data = tracks });
         })
@@ -243,6 +314,57 @@ public static class TrackEndpoints
         .WithOpenApi()
         .WithSummary("Update track play count")
         .WithDescription("Increments the play count and updates last played date");
+    }
+
+    /// <summary>
+    /// Populates multi-valued tag arrays (ArtistIds, ArtistNames, Genres) in a TrackDto from a Track entity.
+    /// Ensures primary artist/genre (matching Track.ArtistId and Track.Genre) appears first in arrays.
+    /// </summary>
+    private static void PopulateMultiValuedTags(Track track, TrackDto dto)
+    {
+        // Populate artist arrays: Primary first (matching Track.ArtistId), then others alphabetically
+        var primaryArtist = track.TrackArtists
+            .FirstOrDefault(ta => ta.ArtistId == track.ArtistId)?.Artist;
+        var otherArtists = track.TrackArtists
+            .Where(ta => ta.ArtistId != track.ArtistId)
+            .Select(ta => ta.Artist)
+            .OrderBy(a => a.Name)
+            .ToList();
+
+        var allArtists = primaryArtist != null
+            ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+            : otherArtists;
+
+        dto.ArtistIds = allArtists.Select(a => a.Id).ToArray();
+        dto.ArtistNames = allArtists.Select(a => a.Name).ToArray();
+
+        // If no artists in many-to-many relationship, fallback to single-value field
+        if (dto.ArtistIds.Length == 0 && !string.IsNullOrEmpty(track.ArtistId))
+        {
+            dto.ArtistIds = new[] { track.ArtistId };
+            dto.ArtistNames = new[] { track.Artist?.Name ?? string.Empty };
+        }
+
+        // Populate genre arrays: Primary first (matching Track.Genre name), then others alphabetically
+        var primaryGenre = track.TrackGenres
+            .FirstOrDefault(tg => tg.Genre.Name == track.Genre)?.Genre;
+        var otherGenres = track.TrackGenres
+            .Where(tg => tg.Genre.Name != track.Genre)
+            .Select(tg => tg.Genre)
+            .OrderBy(g => g.Name)
+            .ToList();
+
+        var allGenres = primaryGenre != null
+            ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+            : otherGenres;
+
+        dto.Genres = allGenres.Select(g => g.Name).ToArray();
+
+        // If no genres in many-to-many relationship, fallback to single-value field
+        if (dto.Genres.Length == 0 && !string.IsNullOrEmpty(track.Genre))
+        {
+            dto.Genres = new[] { track.Genre };
+        }
     }
 
     private static string GetAudioContentType(string filePath)
