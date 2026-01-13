@@ -193,6 +193,43 @@ try
             await context.Database.MigrateAsync();
             Log.Information("Database migrations applied successfully");
 
+            // Run data migration for genres (complex C# parsing logic)
+            // This handles delimiter-separated genre strings that couldn't be handled in SQL
+            try
+            {
+                // Check if there are tracks/albums with genres that haven't been migrated yet
+                var tracksWithGenres = await context.Tracks
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Genre))
+                    .CountAsync();
+                var albumsWithGenres = await context.Albums
+                    .Where(a => !string.IsNullOrWhiteSpace(a.Genre))
+                    .CountAsync();
+                
+                var trackGenresCount = await context.TrackGenres.CountAsync();
+                var albumGenresCount = await context.AlbumGenres.CountAsync();
+                
+                // Run migration if there are genres to migrate and join tables are empty or incomplete
+                // This ensures idempotency - safe to run multiple times
+                if ((tracksWithGenres > 0 && trackGenresCount == 0) || 
+                    (albumsWithGenres > 0 && albumGenresCount == 0))
+                {
+                    Log.Information("Starting genre data migration for {TrackCount} tracks and {AlbumCount} albums...", 
+                        tracksWithGenres, albumsWithGenres);
+                    Audiarr.Data.Migrations.DataMigrationHelper.MigrateGenres(context, "Tracks", "TrackGenres", "TrackId");
+                    Audiarr.Data.Migrations.DataMigrationHelper.MigrateGenres(context, "Albums", "AlbumGenres", "AlbumId");
+                    Log.Information("Genre data migration completed successfully");
+                }
+                else
+                {
+                    Log.Debug("Genre data migration skipped - genres already migrated");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error during genre data migration - this is non-fatal, migration will continue");
+                // Don't throw - allow app to start even if genre migration fails
+            }
+
             // Ensure admin user exists
             var userService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
             var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");
