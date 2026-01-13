@@ -251,6 +251,9 @@ public class LibraryScanner : ILibraryScanner
                 _logger.LogDebug("Added new track: {Title} by {Artists}", track.Title, artistNames);
             }
 
+            // Save all changes: track/album property updates, many-to-many relationships (TrackArtist, TrackGenre, AlbumArtist, AlbumGenre)
+            await _context.SaveChangesAsync(cancellationToken);
+
             result.ProcessedFiles = 1;
         }
         catch (Exception ex)
