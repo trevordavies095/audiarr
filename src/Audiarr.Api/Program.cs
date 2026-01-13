@@ -205,14 +205,14 @@ try
                 // produce no results after parsing, to prevent infinite migration loops
                 var tracksWithDelimitedGenres = await context.Tracks
                     .Where(t => !string.IsNullOrWhiteSpace(t.Genre) && 
-                        (t.Genre!.Contains('/') || t.Genre!.Contains(';') || t.Genre!.Contains(',')))
+                        (t.Genre!.Contains("/") || t.Genre!.Contains(";") || t.Genre!.Contains(",")))
                     .ToListAsync();
                 var tracksWithValidDelimitedGenres = tracksWithDelimitedGenres
                     .Count(t => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(t.Genre!));
                 
                 var albumsWithDelimitedGenres = await context.Albums
                     .Where(a => !string.IsNullOrWhiteSpace(a.Genre) && 
-                        (a.Genre!.Contains('/') || a.Genre!.Contains(';') || a.Genre!.Contains(',')))
+                        (a.Genre!.Contains("/") || a.Genre!.Contains(";") || a.Genre!.Contains(",")))
                     .ToListAsync();
                 var albumsWithValidDelimitedGenres = albumsWithDelimitedGenres
                     .Count(a => Audiarr.Data.Migrations.DataMigrationHelper.WouldProduceGenres(a.Genre!));
