@@ -11,6 +11,7 @@ public class AudiarrContext : DbContext
 
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Artist> Artists { get; set; } = null!;
+    public DbSet<Genre> Genres { get; set; } = null!;
     public DbSet<Album> Albums { get; set; } = null!;
     public DbSet<Track> Tracks { get; set; } = null!;
     public DbSet<Playlist> Playlists { get; set; } = null!;
@@ -43,6 +44,16 @@ public class AudiarrContext : DbContext
             entity.HasIndex(e => e.NormalizedName);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.SortName).HasMaxLength(200);
+            entity.Property(e => e.NormalizedName).HasMaxLength(200);
+        });
+
+        // Configure Genre entity
+        modelBuilder.Entity<Genre>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.NormalizedName);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.NormalizedName).HasMaxLength(200);
         });
 
