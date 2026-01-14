@@ -234,9 +234,9 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Tracks);
         
-        var track = result.Data.FirstOrDefault(t => t.Title == "Rock Track");
+        var track = result.Tracks.FirstOrDefault(t => t.Title == "Rock Track");
         Assert.NotNull(track);
         Assert.Contains("Rock Artist", track.ArtistNames);
         TestHelpers.AssertBackwardCompatibility(track);
@@ -258,9 +258,9 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Tracks);
         
-        var track = result.Data.FirstOrDefault(t => t.Title == "Pop Track");
+        var track = result.Tracks.FirstOrDefault(t => t.Title == "Pop Track");
         Assert.NotNull(track);
         Assert.Contains("Contributing Pop Artist", track.ArtistNames);
     }
@@ -281,9 +281,9 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Tracks);
         
-        var track = result.Data.FirstOrDefault(t => t.Title == "Jazz Track");
+        var track = result.Tracks.FirstOrDefault(t => t.Title == "Jazz Track");
         Assert.NotNull(track);
         Assert.Contains("Jazz", track.Genres);
     }
@@ -304,10 +304,10 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Tracks);
         
         // Should find track even though House is a contributing genre (not primary)
-        var track = result.Data.FirstOrDefault(t => t.Title == "Electronic Track");
+        var track = result.Tracks.FirstOrDefault(t => t.Title == "Electronic Track");
         Assert.NotNull(track);
         Assert.Contains("House", track.Genres);
         TestHelpers.AssertBackwardCompatibility(track);
@@ -330,9 +330,9 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Tracks);
         
-        var track = result.Data.FirstOrDefault(t => t.Title == "Mixed Track");
+        var track = result.Tracks.FirstOrDefault(t => t.Title == "Mixed Track");
         Assert.NotNull(track);
         Assert.Contains("Contributing Mixed Artist", track.ArtistNames);
         Assert.Contains("Secondary Genre", track.Genres);
@@ -355,7 +355,7 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
 
-        foreach (var track in result!.Data)
+        foreach (var track in result!.Tracks)
         {
             Assert.NotNull(track.ArtistIds);
             Assert.NotNull(track.ArtistNames);
@@ -381,9 +381,9 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AdvancedSearchResponse>();
         Assert.NotNull(result);
-        Assert.NotNull(result.Data);
-        Assert.True(result.Data.Count <= 2);
-        Assert.True(result.Total > 0);
+        Assert.NotNull(result.Tracks);
+        Assert.True(result.Tracks.Count <= 2);
+        Assert.True(result.TotalCount > 0);
     }
 
     public void Dispose()
@@ -428,10 +428,11 @@ public class SearchEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicati
 
     private class AdvancedSearchResponse
     {
-        public List<TrackDto> Data { get; set; } = new();
-        public int Total { get; set; }
+        public List<TrackDto> Tracks { get; set; } = new();
+        public int TotalCount { get; set; }
         public int Page { get; set; }
         public int PageSize { get; set; }
+        public int TotalPages { get; set; }
     }
 
     private class AdvancedSearchRequest
