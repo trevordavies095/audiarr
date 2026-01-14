@@ -126,15 +126,43 @@ public class AudiarrWebApplicationFactory : WebApplicationFactory<Program>
         return client;
     }
 
-    public AudiarrContext GetDbContext()
+    public DbContextScope GetDbContext()
     {
         var scope = Services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<AudiarrContext>();
+        var context = scope.ServiceProvider.GetRequiredService<AudiarrContext>();
+        return new DbContextScope(scope, context);
     }
 
     private class LoginResponse
     {
         public string AccessToken { get; set; } = string.Empty;
         public string RefreshToken { get; set; } = string.Empty;
+    }
+}
+
+/// <summary>
+/// Wrapper class that holds both an IServiceScope and the DbContext it provides.
+/// Disposes the scope when this wrapper is disposed, preventing resource leaks.
+/// </summary>
+public class DbContextScope : IDisposable
+{
+    private readonly IServiceScope _scope;
+    private bool _disposed;
+
+    public AudiarrContext Context { get; }
+
+    public DbContextScope(IServiceScope scope, AudiarrContext context)
+    {
+        _scope = scope ?? throw new ArgumentNullException(nameof(scope));
+        Context = context ?? throw new ArgumentNullException(nameof(context));
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _scope?.Dispose();
+            _disposed = true;
+        }
     }
 }

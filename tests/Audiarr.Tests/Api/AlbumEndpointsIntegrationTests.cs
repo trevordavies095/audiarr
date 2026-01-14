@@ -10,7 +10,7 @@ public class AlbumEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
 {
     private readonly AudiarrWebApplicationFactory _factory;
     private readonly HttpClient _client;
-    private readonly AudiarrContext _context;
+    private readonly DbContextScope _context;
     private readonly TestDataBuilder _dataBuilder;
 
     public AlbumEndpointsIntegrationTests(AudiarrWebApplicationFactory factory)
@@ -18,22 +18,22 @@ public class AlbumEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
         _factory = factory;
         _client = factory.CreateAuthenticatedClient();
         _context = factory.GetDbContext();
-        _dataBuilder = new TestDataBuilder(_context);
+        _dataBuilder = new TestDataBuilder(_context.Context);
         SeedTestData();
     }
 
     private void SeedTestData()
     {
         // Clear existing data
-        _context.TrackGenres.RemoveRange(_context.TrackGenres);
-        _context.TrackArtists.RemoveRange(_context.TrackArtists);
-        _context.AlbumGenres.RemoveRange(_context.AlbumGenres);
-        _context.AlbumArtists.RemoveRange(_context.AlbumArtists);
-        _context.Tracks.RemoveRange(_context.Tracks);
-        _context.Albums.RemoveRange(_context.Albums);
-        _context.Genres.RemoveRange(_context.Genres);
-        _context.Artists.RemoveRange(_context.Artists);
-        _context.SaveChanges();
+        _context.Context.TrackGenres.RemoveRange(_context.Context.TrackGenres);
+        _context.Context.TrackArtists.RemoveRange(_context.Context.TrackArtists);
+        _context.Context.AlbumGenres.RemoveRange(_context.Context.AlbumGenres);
+        _context.Context.AlbumArtists.RemoveRange(_context.Context.AlbumArtists);
+        _context.Context.Tracks.RemoveRange(_context.Context.Tracks);
+        _context.Context.Albums.RemoveRange(_context.Context.Albums);
+        _context.Context.Genres.RemoveRange(_context.Context.Genres);
+        _context.Context.Artists.RemoveRange(_context.Context.Artists);
+        _context.Context.SaveChanges();
 
         // Create test data with various scenarios
         // Single artist, single genre
