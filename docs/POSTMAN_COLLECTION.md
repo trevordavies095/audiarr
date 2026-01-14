@@ -20,13 +20,24 @@ Create a new environment with these variables:
 - `queueId`: (leave empty, will be set by requests)
 - `scanRequestId`: (leave empty, will be set by requests)
 
+## Multi-Valued Tags
+
+**Note**: All track and album responses now include multi-valued tag arrays:
+- `artistIds`: Array of all artist IDs (primary first)
+- `artistNames`: Array of all artist names (primary first)
+- `genres`: Array of all genre names (primary first)
+- `primaryArtistId`: Alias for `artistId` (backward compatibility)
+- `primaryArtistName`: Alias for `artistName` (backward compatibility)
+
+Single-value fields (`artistId`, `artistName`, `genre`) are maintained for backward compatibility and always contain the primary (first) value. See the [API Integration Guide](API_INTEGRATION.md#multi-valued-tags) for details.
+
 ## Collection JSON
 
 ```json
 {
   "info": {
     "name": "Audiarr API v2",
-    "description": "Complete API collection for Audiarr music streaming server",
+    "description": "Complete API collection for Audiarr music streaming server. All track and album responses include multi-valued tag arrays (artistIds, artistNames, genres) for improved library organization.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1283,6 +1294,13 @@ Create a new environment with these variables:
    - The "Stream Track" request returns audio data
    - Enable the Range header to test seeking
    - Use Postman's "Send and Download" to save audio files
+
+6. **Multi-Valued Tags**
+   - Track and album responses include `artistIds`, `artistNames`, and `genres` arrays
+   - Single-value fields (`artistId`, `artistName`, `genre`) are maintained for backward compatibility
+   - Arrays contain all artists/genres with the primary value first
+   - Search endpoints find tracks/albums by any contributing artist, not just the primary
+   - See the [API Integration Guide](API_INTEGRATION.md#multi-valued-tags) for complete documentation
 
 ## Advanced Features
 

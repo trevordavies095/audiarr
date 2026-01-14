@@ -234,17 +234,23 @@ GET /api/v2/albums/{id}
 Authorization: Bearer <token>
 ```
 
-**Response:**
+**Response (Single Artist Album):**
 ```json
 {
   "id": "album_id",
   "title": "Album Title",
   "artistId": "artist_id",
   "artistName": "Artist Name",
+  "artistIds": ["artist_id"],
+  "artistNames": ["Artist Name"],
   "year": 2023,
   "trackCount": 12,
   "genre": "Rock",
+  "genres": ["Rock"],
   "coverArtPath": "/artwork/album_id.jpg",
+  "releaseDate": "2023-01-15T00:00:00Z",
+  "primaryArtistId": "artist_id",
+  "primaryArtistName": "Artist Name",
   "totalDurationMs": 2580000,
   "tracks": [
     {
@@ -253,6 +259,36 @@ Authorization: Bearer <token>
       "trackNumber": 1,
       "discNumber": 1,
       "durationMs": 215000
+    }
+  ]
+}
+```
+
+**Response (Multi-Artist Album):**
+```json
+{
+  "id": "collab_album_id",
+  "title": "Collaboration Album",
+  "artistId": "primary_artist_id",
+  "artistName": "Primary Artist",
+  "artistIds": ["primary_artist_id", "secondary_artist_id"],
+  "artistNames": ["Primary Artist", "Secondary Artist"],
+  "year": 2023,
+  "trackCount": 10,
+  "genre": "Electronic",
+  "genres": ["Electronic", "House", "Techno"],
+  "coverArtPath": "/artwork/collab_album.jpg",
+  "releaseDate": "2023-06-15T00:00:00Z",
+  "primaryArtistId": "primary_artist_id",
+  "primaryArtistName": "Primary Artist",
+  "totalDurationMs": 2400000,
+  "tracks": [
+    {
+      "id": "track_id",
+      "title": "Track Title",
+      "trackNumber": 1,
+      "discNumber": 1,
+      "durationMs": 240000
     }
   ]
 }
@@ -282,6 +318,58 @@ Authorization: Bearer <token>
 ```http
 GET /api/v2/tracks/{id}
 Authorization: Bearer <token>
+```
+
+**Response (Single Artist):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440003",
+  "title": "Money",
+  "artistId": "550e8400-e29b-41d4-a716-446655440001",
+  "artistName": "Pink Floyd",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001"],
+  "artistNames": ["Pink Floyd"],
+  "albumId": "550e8400-e29b-41d4-a716-446655440002",
+  "albumTitle": "The Dark Side of the Moon",
+  "trackNumber": 6,
+  "discNumber": 1,
+  "durationMs": 382000,
+  "genre": "Progressive Rock",
+  "genres": ["Progressive Rock"],
+  "year": 1973,
+  "fileSize": 9175040,
+  "bitrate": 320,
+  "codec": "MP3",
+  "filePath": "/music/Pink Floyd/Dark Side/06 - Money.mp3",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Pink Floyd"
+}
+```
+
+**Response (Multi-Artist Track):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440004",
+  "title": "Collaboration Track",
+  "artistId": "550e8400-e29b-41d4-a716-446655440001",
+  "artistName": "Primary Artist",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440005"],
+  "artistNames": ["Primary Artist", "Secondary Artist"],
+  "albumId": "550e8400-e29b-41d4-a716-446655440002",
+  "albumTitle": "Collaboration Album",
+  "trackNumber": 1,
+  "discNumber": 1,
+  "durationMs": 240000,
+  "genre": "Electronic",
+  "genres": ["Electronic", "House"],
+  "year": 2023,
+  "fileSize": 5242880,
+  "bitrate": 320,
+  "codec": "MP3",
+  "filePath": "/music/Collaboration Album/01 - Collaboration Track.mp3",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Primary Artist"
+}
 ```
 
 #### Stream Track
@@ -335,11 +423,46 @@ GET /api/v2/search?q=search_term&limit=5
 {
   "query": "search_term",
   "totalResults": 15,
-  "artists": [...],
-  "albums": [...],
-  "tracks": [...]
+  "artists": [
+    {
+      "id": "artist_id",
+      "name": "Artist Name",
+      "type": "artist",
+      "albumCount": 5,
+      "trackCount": 47
+    }
+  ],
+  "albums": [
+    {
+      "id": "album_id",
+      "title": "Album Title",
+      "artistName": "Primary Artist",
+      "artistIds": ["primary_artist_id", "secondary_artist_id"],
+      "artistNames": ["Primary Artist", "Secondary Artist"],
+      "year": 2023,
+      "coverArtPath": "/artwork/album.jpg"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track_id",
+      "title": "Track Title",
+      "artistName": "Primary Artist",
+      "artistIds": ["primary_artist_id", "secondary_artist_id"],
+      "artistNames": ["Primary Artist", "Secondary Artist"],
+      "albumTitle": "Album Title",
+      "genres": ["Electronic", "House"],
+      "durationMs": 240000
+    }
+  ]
 }
 ```
+
+**Search Behavior:**
+- Search finds tracks/albums by **any contributing artist**, not just the primary artist
+- Searching for "Secondary Artist" will return tracks/albums where that artist appears in the `artistIds` array
+- Genre search finds tracks/albums where the genre appears in the `genres` array
+- This provides more comprehensive discovery of collaborations and multi-artist works
 
 #### Advanced Search
 ```http
@@ -362,10 +485,165 @@ Authorization: Bearer <token>
 }
 ```
 
+**Response:**
+```json
+{
+  "tracks": [
+    {
+      "id": "track_id",
+      "title": "Song Title",
+      "artistId": "primary_artist_id",
+      "artistName": "Primary Artist",
+      "artistIds": ["primary_artist_id", "secondary_artist_id"],
+      "artistNames": ["Primary Artist", "Secondary Artist"],
+      "albumId": "album_id",
+      "albumTitle": "Album Name",
+      "year": 2022,
+      "genre": "Rock",
+      "genres": ["Rock", "Alternative"],
+      "durationMs": 215000,
+      "bitrate": 320,
+      "trackNumber": 1,
+      "discNumber": 1,
+      "filePath": "/music/album/song.mp3"
+    }
+  ],
+  "total": 25,
+  "page": 1,
+  "pageSize": 50,
+  "totalPages": 1
+}
+```
+
+**Advanced Search Notes:**
+- **Artist Filter**: Searches across all artists in `artistIds`, not just the primary artist
+- **Genre Filter**: Searches across all genres in `genres`, not just the primary genre
+- Results include full multi-valued tag arrays for complete artist/genre information
+
 #### Search Suggestions
 ```http
 GET /api/v2/search/suggestions?q=par
 ```
+
+### Multi-Valued Tags
+
+Audiarr supports multi-valued tags for artists and genres, allowing tracks and albums to have multiple artists and genres. This feature improves library organization, especially for electronic music with frequent collaborations.
+
+#### How It Works
+
+**Native Multi-Valued Tags:**
+- The library scanner reads native multi-valued tags from audio files (e.g., ID3v2.4 `TPE2` frame with multiple values)
+- These are the preferred method and provide the most accurate results
+
+**Delimiter Parsing:**
+- When native multi-valued tags are not available, the scanner falls back to parsing delimiter-separated values
+- Example: A tag containing "Artist A / Artist B" will be parsed into two artists
+- Configurable delimiters: `/`, `;`, `,` (default: `/`)
+
+**Database Storage:**
+- Each artist and genre is stored as a separate entity in the database
+- Many-to-many relationships link tracks/albums to their artists and genres
+- This prevents cluttered artist lists with combined strings like "Artist A & Artist B"
+
+#### Backward Compatibility
+
+The API maintains full backward compatibility with existing clients:
+
+1. **Single-Value Fields**: The original fields (`artistId`, `artistName`, `genre`) are always present and contain the primary (first) artist/genre
+   - `artistId`: Primary artist ID (first in the artist list)
+   - `artistName`: Primary artist name (first in the artist list)
+   - `genre`: Primary genre (first in the genre list)
+
+2. **Array Fields**: New array fields contain all values, with the primary value first
+   - `artistIds`: Array of all artist IDs (primary first)
+   - `artistNames`: Array of all artist names (primary first)
+   - `genres`: Array of all genre names (primary first)
+
+3. **Alias Properties**: Explicit naming for backward compatibility
+   - `primaryArtistId`: Alias for `artistId`
+   - `primaryArtistName`: Alias for `artistName`
+
+**Example:**
+```json
+{
+  "artistId": "artist_1_id",           // Primary artist (backward compatible)
+  "artistName": "Primary Artist",      // Primary artist name (backward compatible)
+  "artistIds": ["artist_1_id", "artist_2_id"],  // All artists
+  "artistNames": ["Primary Artist", "Secondary Artist"],  // All artist names
+  "primaryArtistId": "artist_1_id",    // Explicit alias
+  "primaryArtistName": "Primary Artist"  // Explicit alias
+}
+```
+
+#### Configuration
+
+Multi-valued tag parsing is configured in `appsettings.json`:
+
+```json
+{
+  "MultiValuedTags": {
+    "Delimiter": "/",
+    "EnableDelimiterParsing": true,
+    "PreferredDelimiters": ["/", ";", ","]
+  }
+}
+```
+
+**Configuration Options:**
+- `Delimiter`: Primary delimiter for parsing (default: `/`)
+- `EnableDelimiterParsing`: Enable/disable delimiter parsing fallback (default: `true`)
+- `PreferredDelimiters`: Array of delimiters to try, in order of preference (default: `["/", ";", ","]`)
+
+**Environment Variables:**
+Configuration can be overridden using environment variables:
+- `MultiValuedTags__Delimiter`
+- `MultiValuedTags__EnableDelimiterParsing`
+- `MultiValuedTags__PreferredDelimiters__0`, `MultiValuedTags__PreferredDelimiters__1`, etc.
+
+#### Search Behavior
+
+Search endpoints have been updated to find tracks/albums by any contributing artist or genre, not just the primary:
+
+- **Artist Search**: Finds tracks/albums where the artist appears in the `artistIds` array, not just as the primary artist
+- **Genre Search**: Finds tracks/albums where the genre appears in the `genres` array, not just as the primary genre
+- **Improved Discovery**: Users can find all contributions from an artist, including collaborations
+
+**Example:**
+Searching for "Secondary Artist" will return:
+- Tracks where "Secondary Artist" is the primary artist
+- Tracks where "Secondary Artist" is a contributing artist
+- Albums where "Secondary Artist" appears in any capacity
+
+#### Best Practices for API Consumers
+
+1. **Use Array Fields for New Features**: When building new features, use `artistIds`, `artistNames`, and `genres` arrays to display all artists/genres
+
+2. **Maintain Backward Compatibility**: Existing code using `artistId`, `artistName`, and `genre` will continue to work without modification
+
+3. **Display All Artists**: When showing track/album information, consider displaying all artists:
+   ```javascript
+   // Display primary artist for compatibility
+   const primaryArtist = track.artistName;
+   
+   // Display all artists for new features
+   const allArtists = track.artistNames.join(", ");
+   ```
+
+4. **Handle Empty Arrays**: Arrays may be empty for tracks/albums without multi-valued tags:
+   ```javascript
+   const artists = track.artistNames.length > 0 
+     ? track.artistNames 
+     : [track.artistName]; // Fallback to single value
+   ```
+
+5. **Search Considerations**: When implementing search, remember that search now finds tracks/albums by any contributing artist, providing more comprehensive results
+
+6. **Genre Handling**: Genres can be null/empty, so always check array length:
+   ```javascript
+   const genres = track.genres.length > 0 
+     ? track.genres 
+     : (track.genre ? [track.genre] : []);
+   ```
 
 ### Playback Context
 
