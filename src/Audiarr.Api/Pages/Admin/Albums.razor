@@ -275,8 +275,8 @@ else
         {
             query = query.Where(a => 
                 a.Title.Contains(searchQuery) || 
-                a.Artist.Name.Contains(searchQuery) ||
-                a.AlbumArtists.Any(aa => aa.Artist.Name.Contains(searchQuery)));
+                (a.Artist != null && a.Artist.Name.Contains(searchQuery)) ||
+                a.AlbumArtists.Any(aa => aa.Artist != null && aa.Artist.Name.Contains(searchQuery)));
         }
 
         totalAlbums = await query.CountAsync();
@@ -307,11 +307,12 @@ else
         {
             // Build ordered artist list: primary artist first, then others alphabetically
             var primaryArtist = a.AlbumArtists
-                .FirstOrDefault(aa => aa.ArtistId == a.ArtistId)?.Artist;
+                .FirstOrDefault(aa => aa.ArtistId == a.ArtistId && aa.Artist != null)
+                ?.Artist;
 
             var otherArtists = a.AlbumArtists
-                .Where(aa => aa.ArtistId != a.ArtistId)
-                .Select(aa => aa.Artist)
+                .Where(aa => aa.Artist != null && aa.ArtistId != a.ArtistId)
+                .Select(aa => aa.Artist!)
                 .Distinct()
                 .OrderBy(ar => ar.Name)
                 .ToList();
