@@ -375,6 +375,33 @@ else
 
             var artistIds = allArtists.Select(ar => ar.Id).ToArray();
             var artistNames = allArtists.Select(ar => ar.Name).ToArray();
+
+            // Build genre list: primary genre first (matching single-value Genre), then others alphabetically
+            var primaryGenre = t.TrackGenres
+                .FirstOrDefault(tg => tg.Genre != null && tg.Genre.Name == t.Genre)
+                ?.Genre;
+            var otherGenres = t.TrackGenres
+                .Where(tg => tg.Genre != null && tg.Genre.Name != t.Genre)
+                .Select(tg => tg.Genre!)
+                .Distinct()
+                .OrderBy(g => g.Name)
+                .ToList();
+
+            var allGenres = primaryGenre != null
+                ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+                : otherGenres;
+
+            // Fallback to single-value genre if no many-to-many data
+            string[] genres;
+            if (!allGenres.Any() && !string.IsNullOrEmpty(t.Genre))
+            {
+                // No many-to-many data, use single-value string
+                genres = new[] { t.Genre };
+            }
+            else
+            {
+                genres = allGenres.Select(g => g.Name).ToArray();
+            }
             
             return new TrackViewModel
             {
@@ -388,7 +415,7 @@ else
                 AlbumTitle = t.Album != null ? t.Album.Title : string.Empty,
                 DurationMs = t.DurationMs,
                 Genre = t.Genre,
-                Genres = t.TrackGenres.Where(tg => tg.Genre != null).Select(tg => tg.Genre!.Name).Distinct().OrderBy(g => g).ToArray(),
+                Genres = genres,
                 Year = t.Year,
                 PlayCount = t.PlayCount,
                 LastPlayedDate = t.LastPlayedDate

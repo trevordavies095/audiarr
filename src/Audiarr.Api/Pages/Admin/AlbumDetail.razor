@@ -338,6 +338,8 @@ else
                 .Include(a => a.AlbumArtists).ThenInclude(aa => aa.Artist)
                 .Include(a => a.AlbumGenres).ThenInclude(ag => ag.Genre)
                 .Include(a => a.Tracks)
+                    .ThenInclude(t => t.Artist)
+                .Include(a => a.Tracks)
                     .ThenInclude(t => t.TrackArtists).ThenInclude(ta => ta.Artist)
                 .Include(a => a.Tracks)
                     .ThenInclude(t => t.TrackGenres).ThenInclude(tg => tg.Genre)
