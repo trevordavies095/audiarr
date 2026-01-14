@@ -163,7 +163,7 @@ public static class PlaylistEndpoints
                         ArtistId = pt.Track.ArtistId,
                         ArtistName = pt.Track.Artist.Name,
                         AlbumId = pt.Track.AlbumId,
-                        AlbumTitle = pt.Track.Album.Title,
+                        AlbumTitle = pt.Track.Album?.Title,
                         TrackNumber = pt.Track.TrackNumber,
                         DiscNumber = pt.Track.DiscNumber,
                         DurationMs = pt.Track.DurationMs,

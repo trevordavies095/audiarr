@@ -190,7 +190,7 @@ public static class AlbumEndpoints
                     ArtistId = t.ArtistId,
                     ArtistName = t.Artist.Name,
                     AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
+                    AlbumTitle = t.Album != null ? t.Album.Title : null,
                     TrackNumber = t.TrackNumber,
                     DiscNumber = t.DiscNumber,
                     DurationMs = t.DurationMs,
