@@ -102,7 +102,7 @@ else
                                         }
                                     }
                                 }
-                                else if (!string.IsNullOrEmpty(album.ArtistId))
+                                else if (!string.IsNullOrEmpty(album.ArtistId) && !string.IsNullOrEmpty(album.ArtistName))
                                 {
                                     <a href="/admin/artists/@album.ArtistId" @onclick:stopPropagation="true">
                                         @album.ArtistName
