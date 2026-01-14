@@ -316,7 +316,8 @@ else
             query = query.Where(t => 
                 t.Title.Contains(searchQuery) || 
                 (t.Artist != null && t.Artist.Name.Contains(searchQuery)) ||
-                (t.Album != null && t.Album.Title.Contains(searchQuery)));
+                (t.Album != null && t.Album.Title.Contains(searchQuery)) ||
+                t.TrackArtists.Any(ta => ta.Artist != null && ta.Artist.Name.Contains(searchQuery)));
         }
 
         totalTracks = await query.CountAsync();
