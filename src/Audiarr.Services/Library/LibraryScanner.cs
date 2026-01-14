@@ -864,7 +864,7 @@ public class LibraryScanner : ILibraryScanner
     /// <param name="artists">Native multi-valued artists array from tag (e.g., tag.Performers or tag.AlbumArtists)</param>
     /// <param name="singleValue">Single-value fallback (e.g., tag.FirstPerformer or tag.FirstAlbumArtist)</param>
     /// <returns>List of artist names, trimmed and deduplicated</returns>
-    private List<string> ParseArtists(string[] artists, string? singleValue)
+    internal List<string> ParseArtists(string[] artists, string? singleValue)
     {
         var result = new List<string>();
         bool usedNativeTags = false;
@@ -946,7 +946,7 @@ public class LibraryScanner : ILibraryScanner
     /// <param name="genres">Native multi-valued genres array from tag (e.g., tag.Genres)</param>
     /// <param name="singleValue">Single-value fallback (e.g., tag.FirstGenre)</param>
     /// <returns>List of genre names, trimmed and deduplicated. Returns empty list if no genres found (unlike artists, genres can be null/empty)</returns>
-    private List<string> ParseGenres(string[] genres, string? singleValue)
+    internal List<string> ParseGenres(string[] genres, string? singleValue)
     {
         var result = new List<string>();
 

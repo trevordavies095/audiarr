@@ -179,31 +179,44 @@ public static class AlbumEndpoints
             if (!albumExists)
                 return Results.NotFound(new { error = "Album not found" });
 
-            var tracks = await db.Tracks
+            // Load full entities with navigation properties to populate multi-valued tags
+            var tracksData = await db.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
+                .Include(t => t.TrackArtists)
+                    .ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres)
+                    .ThenInclude(tg => tg.Genre)
                 .Where(t => t.AlbumId == id)
-                .Select(t => new TrackDto
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
-                    AlbumId = t.AlbumId,
-                    AlbumTitle = t.Album.Title,
-                    TrackNumber = t.TrackNumber,
-                    DiscNumber = t.DiscNumber,
-                    DurationMs = t.DurationMs,
-                    Genre = t.Genre,
-                    Year = t.Year,
-                    FileSize = t.FileSize,
-                    Bitrate = t.Bitrate,
-                    Codec = t.Codec,
-                    FilePath = t.FilePath
-                })
                 .OrderBy(t => t.DiscNumber)
                 .ThenBy(t => t.TrackNumber)
                 .ToListAsync();
+
+            // Map to DTOs
+            var tracks = tracksData.Select(t => new TrackDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                ArtistId = t.ArtistId,
+                ArtistName = t.Artist?.Name ?? string.Empty,
+                AlbumId = t.AlbumId,
+                AlbumTitle = t.Album?.Title ?? string.Empty,
+                TrackNumber = t.TrackNumber,
+                DiscNumber = t.DiscNumber,
+                DurationMs = t.DurationMs,
+                Genre = t.Genre,
+                Year = t.Year,
+                FileSize = t.FileSize,
+                Bitrate = t.Bitrate,
+                Codec = t.Codec,
+                FilePath = t.FilePath
+            }).ToList();
+
+            // Populate multi-valued tag arrays
+            foreach (var track in tracksData.Zip(tracks, (t, dto) => new { Track = t, Dto = dto }))
+            {
+                PopulateMultiValuedTags(track.Track, track.Dto);
+            }
 
             return Results.Ok(new { data = tracks });
         })
