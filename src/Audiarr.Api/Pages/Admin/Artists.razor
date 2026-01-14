@@ -230,11 +230,11 @@ else
         {
             "Name" => sortAscending ? query.OrderBy(a => a.SortName ?? a.Name) : query.OrderByDescending(a => a.SortName ?? a.Name),
             "AlbumCount" => sortAscending ? 
-                query.OrderBy(a => DbContext.Albums.Count(al => al.ArtistId == a.Id)) : 
-                query.OrderByDescending(a => DbContext.Albums.Count(al => al.ArtistId == a.Id)),
+                query.OrderBy(a => DbContext.Albums.Count(al => al.ArtistId == a.Id || al.AlbumArtists.Any(aa => aa.ArtistId == a.Id))) : 
+                query.OrderByDescending(a => DbContext.Albums.Count(al => al.ArtistId == a.Id || al.AlbumArtists.Any(aa => aa.ArtistId == a.Id))),
             "TrackCount" => sortAscending ? 
-                query.OrderBy(a => DbContext.Tracks.Count(t => t.ArtistId == a.Id)) :
-                query.OrderByDescending(a => DbContext.Tracks.Count(t => t.ArtistId == a.Id)),
+                query.OrderBy(a => DbContext.Tracks.Count(t => t.ArtistId == a.Id || t.TrackArtists.Any(ta => ta.ArtistId == a.Id))) :
+                query.OrderByDescending(a => DbContext.Tracks.Count(t => t.ArtistId == a.Id || t.TrackArtists.Any(ta => ta.ArtistId == a.Id))),
             _ => query.OrderBy(a => a.SortName ?? a.Name)
         };
 
@@ -246,8 +246,8 @@ else
                 Id = a.Id,
                 Name = a.Name,
                 SortName = a.SortName,
-                AlbumCount = DbContext.Albums.Count(al => al.ArtistId == a.Id),
-                TrackCount = DbContext.Tracks.Count(t => t.ArtistId == a.Id)
+                AlbumCount = DbContext.Albums.Count(al => al.ArtistId == a.Id || al.AlbumArtists.Any(aa => aa.ArtistId == a.Id)),
+                TrackCount = DbContext.Tracks.Count(t => t.ArtistId == a.Id || t.TrackArtists.Any(ta => ta.ArtistId == a.Id))
             })
             .ToListAsync();
 
