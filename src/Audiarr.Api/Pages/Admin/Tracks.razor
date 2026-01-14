@@ -113,15 +113,42 @@ else
                         </td>
                         <td>
                             <strong>@track.Title</strong>
-                            @if (!string.IsNullOrEmpty(track.Genre))
+                            @if (track.Genres != null && track.Genres.Length > 0)
+                            {
+                                @foreach (var genre in track.Genres)
+                                {
+                                    <span class="badge bg-secondary ms-2">@genre</span>
+                                }
+                            }
+                            else if (!string.IsNullOrEmpty(track.Genre))
                             {
                                 <span class="badge bg-secondary ms-2">@track.Genre</span>
                             }
                         </td>
                         <td>
-                            <a href="/admin/artists/@track.ArtistId" @onclick:stopPropagation="true">
-                                @track.ArtistName
-                            </a>
+                            @if (track.ArtistNames != null && track.ArtistNames.Length > 0)
+                            {
+                                @for (int i = 0; i < track.ArtistNames.Length; i++)
+                                {
+                                    <a href="/admin/artists/@track.ArtistIds[i]" @onclick:stopPropagation="true">
+                                        @track.ArtistNames[i]
+                                    </a>
+                                    @if (i < track.ArtistNames.Length - 1)
+                                    {
+                                        <text>, </text>
+                                    }
+                                }
+                            }
+                            else if (!string.IsNullOrEmpty(track.ArtistId) && !string.IsNullOrEmpty(track.ArtistName))
+                            {
+                                <a href="/admin/artists/@track.ArtistId" @onclick:stopPropagation="true">
+                                    @track.ArtistName
+                                </a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Unknown Artist</span>
+                            }
                         </td>
                         <td>
                             <a href="/admin/albums/@track.AlbumId" @onclick:stopPropagation="true">
@@ -256,10 +283,13 @@ else
         public string Title { get; set; } = "";
         public string ArtistId { get; set; } = "";
         public string ArtistName { get; set; } = "";
+        public string[] ArtistIds { get; set; } = Array.Empty<string>();
+        public string[] ArtistNames { get; set; } = Array.Empty<string>();
         public string AlbumId { get; set; } = "";
         public string AlbumTitle { get; set; } = "";
         public int DurationMs { get; set; }
         public string? Genre { get; set; }
+        public string[] Genres { get; set; } = Array.Empty<string>();
         public int? Year { get; set; }
         public int PlayCount { get; set; }
         public DateTime? LastPlayedDate { get; set; }
@@ -277,14 +307,17 @@ else
         var query = DbContext.Tracks
             .Include(t => t.Artist)
             .Include(t => t.Album)
+            .Include(t => t.TrackArtists).ThenInclude(ta => ta.Artist)
+            .Include(t => t.TrackGenres).ThenInclude(tg => tg.Genre)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(searchQuery))
         {
             query = query.Where(t => 
                 t.Title.Contains(searchQuery) || 
-                t.Artist.Name.Contains(searchQuery) ||
-                t.Album.Title.Contains(searchQuery));
+                (t.Artist != null && t.Artist.Name.Contains(searchQuery)) ||
+                (t.Album != null && t.Album.Title.Contains(searchQuery)) ||
+                t.TrackArtists.Any(ta => ta.Artist != null && ta.Artist.Name.Contains(searchQuery)));
         }
 
         totalTracks = await query.CountAsync();
@@ -294,32 +327,73 @@ else
         query = sortField switch
         {
             "Title" => sortAscending ? query.OrderBy(t => t.Title) : query.OrderByDescending(t => t.Title),
-            "Artist" => sortAscending ? query.OrderBy(t => t.Artist.Name) : query.OrderByDescending(t => t.Artist.Name),
-            "Album" => sortAscending ? query.OrderBy(t => t.Album.Title) : query.OrderByDescending(t => t.Album.Title),
+            "Artist" => sortAscending ? query.OrderBy(t => t.Artist != null ? t.Artist.Name : string.Empty) : query.OrderByDescending(t => t.Artist != null ? t.Artist.Name : string.Empty),
+            "Album" => sortAscending ? query.OrderBy(t => t.Album != null ? t.Album.Title : string.Empty) : query.OrderByDescending(t => t.Album != null ? t.Album.Title : string.Empty),
             "Duration" => sortAscending ? query.OrderBy(t => t.DurationMs) : query.OrderByDescending(t => t.DurationMs),
             "Year" => sortAscending ? query.OrderBy(t => t.Year ?? 0) : query.OrderByDescending(t => t.Year ?? 0),
             "PlayCount" => sortAscending ? query.OrderBy(t => t.PlayCount) : query.OrderByDescending(t => t.PlayCount),
             _ => query.OrderBy(t => t.Title)
         };
 
-        tracks = await query
+        var tracksList = await query
             .Skip((currentPage - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => new TrackViewModel
+            .ToListAsync();
+
+        tracks = tracksList.Select(t => 
+        {
+            // Build ordered artist list: primary artist first, then others alphabetically
+            var primaryArtist = t.TrackArtists
+                .FirstOrDefault(ta => ta.ArtistId == t.ArtistId && ta.Artist != null)
+                ?.Artist;
+
+            // If primary artist not found in many-to-many collection but exists in single-value field, use it
+            if (primaryArtist == null && !string.IsNullOrEmpty(t.ArtistId) && t.Artist != null)
+            {
+                primaryArtist = t.Artist;
+            }
+
+            var otherArtists = t.TrackArtists
+                .Where(ta => ta.Artist != null && ta.ArtistId != t.ArtistId)
+                .Select(ta => ta.Artist!)
+                .Distinct()
+                .OrderBy(ar => ar.Name)
+                .ToList();
+
+            var allArtists = primaryArtist != null
+                ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                : otherArtists;
+
+            // Fallback to single-value artist if no many-to-many data
+            if (!allArtists.Any() && !string.IsNullOrEmpty(t.ArtistId))
+            {
+                if (t.Artist != null)
+                {
+                    allArtists = new List<Artist> { t.Artist };
+                }
+            }
+
+            var artistIds = allArtists.Select(ar => ar.Id).ToArray();
+            var artistNames = allArtists.Select(ar => ar.Name).ToArray();
+            
+            return new TrackViewModel
             {
                 Id = t.Id,
                 Title = t.Title,
                 ArtistId = t.ArtistId,
-                ArtistName = t.Artist.Name,
+                ArtistName = t.Artist != null ? t.Artist.Name : string.Empty,
+                ArtistIds = artistIds,
+                ArtistNames = artistNames,
                 AlbumId = t.AlbumId,
-                AlbumTitle = t.Album.Title,
+                AlbumTitle = t.Album != null ? t.Album.Title : string.Empty,
                 DurationMs = t.DurationMs,
                 Genre = t.Genre,
+                Genres = t.TrackGenres.Where(tg => tg.Genre != null).Select(tg => tg.Genre!.Name).Distinct().OrderBy(g => g).ToArray(),
                 Year = t.Year,
                 PlayCount = t.PlayCount,
                 LastPlayedDate = t.LastPlayedDate
-            })
-            .ToListAsync();
+            };
+        }).ToList();
 
         isLoading = false;
     }

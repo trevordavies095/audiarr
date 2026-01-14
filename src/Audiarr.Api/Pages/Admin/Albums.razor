@@ -88,8 +88,30 @@ else
                     <div class="card-body">
                         <h6 class="card-title text-truncate" title="@album.Title">@album.Title</h6>
                         <p class="card-text">
-                            <small class="text-muted text-truncate d-block" title="@album.ArtistName">
-                                @album.ArtistName
+                            <small class="text-muted text-truncate d-block" title="@(album.ArtistNames != null && album.ArtistNames.Length > 0 ? string.Join(", ", album.ArtistNames) : album.ArtistName)">
+                                @if (album.ArtistNames != null && album.ArtistNames.Length > 0)
+                                {
+                                    for (int i = 0; i < album.ArtistNames.Length; i++)
+                                    {
+                                        <a href="/admin/artists/@album.ArtistIds[i]" @onclick:stopPropagation="true">
+                                            @album.ArtistNames[i]
+                                        </a>
+                                        @if (i < album.ArtistNames.Length - 1)
+                                        {
+                                            <text>, </text>
+                                        }
+                                    }
+                                }
+                                else if (!string.IsNullOrEmpty(album.ArtistId) && !string.IsNullOrEmpty(album.ArtistName))
+                                {
+                                    <a href="/admin/artists/@album.ArtistId" @onclick:stopPropagation="true">
+                                        @album.ArtistName
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Unknown Artist</span>
+                                }
                             </small>
                             <small class="text-muted">
                                 @if (album.Year.HasValue)
@@ -227,6 +249,8 @@ else
         public string Title { get; set; } = "";
         public string ArtistId { get; set; } = "";
         public string ArtistName { get; set; } = "";
+        public string[] ArtistIds { get; set; } = Array.Empty<string>();
+        public string[] ArtistNames { get; set; } = Array.Empty<string>();
         public int? Year { get; set; }
         public int TrackCount { get; set; }
         public string? CoverArtPath { get; set; }
@@ -244,13 +268,15 @@ else
         
         var query = DbContext.Albums
             .Include(a => a.Artist)
+            .Include(a => a.AlbumArtists).ThenInclude(aa => aa.Artist)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(searchQuery))
         {
             query = query.Where(a => 
                 a.Title.Contains(searchQuery) || 
-                a.Artist.Name.Contains(searchQuery));
+                (a.Artist != null && a.Artist.Name.Contains(searchQuery)) ||
+                a.AlbumArtists.Any(aa => aa.Artist != null && aa.Artist.Name.Contains(searchQuery)));
         }
 
         totalAlbums = await query.CountAsync();
@@ -265,21 +291,68 @@ else
             _ => query.OrderByDescending(a => a.CreatedAt)
         };
 
-        albums = await query
+        var pageAlbums = await query
             .Skip((currentPage - 1) * pageSize)
             .Take(pageSize)
-            .Select(a => new AlbumViewModel
+            .ToListAsync();
+
+        var pageAlbumIds = pageAlbums.Select(a => a.Id).ToList();
+
+        var trackCounts = await DbContext.Tracks
+            .Where(t => pageAlbumIds.Contains(t.AlbumId))
+            .GroupBy(t => t.AlbumId)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+        albums = pageAlbums.Select(a =>
+        {
+            // Build ordered artist list: primary artist first, then others alphabetically
+            var primaryArtist = a.AlbumArtists
+                .FirstOrDefault(aa => aa.ArtistId == a.ArtistId && aa.Artist != null)
+                ?.Artist;
+
+            // If primary artist not found in many-to-many collection but exists in single-value field, use it
+            if (primaryArtist == null && !string.IsNullOrEmpty(a.ArtistId) && a.Artist != null)
+            {
+                primaryArtist = a.Artist;
+            }
+
+            var otherArtists = a.AlbumArtists
+                .Where(aa => aa.Artist != null && aa.ArtistId != a.ArtistId)
+                .Select(aa => aa.Artist!)
+                .Distinct()
+                .OrderBy(ar => ar.Name)
+                .ToList();
+
+            var allArtists = primaryArtist != null
+                ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                : otherArtists;
+
+            // Fallback to single-value artist if no many-to-many data
+            if (!allArtists.Any() && !string.IsNullOrEmpty(a.ArtistId))
+            {
+                if (a.Artist != null)
+                {
+                    allArtists = new List<Artist> { a.Artist };
+                }
+            }
+
+            var artistIds = allArtists.Select(ar => ar.Id).ToArray();
+            var artistNames = allArtists.Select(ar => ar.Name).ToArray();
+
+            return new AlbumViewModel
             {
                 Id = a.Id,
                 Title = a.Title,
                 ArtistId = a.ArtistId,
-                ArtistName = a.Artist.Name,
+                ArtistName = a.Artist?.Name ?? string.Empty,
+                ArtistIds = artistIds,
+                ArtistNames = artistNames,
                 Year = a.Year,
-                TrackCount = DbContext.Tracks.Count(t => t.AlbumId == a.Id),
+                TrackCount = trackCounts.TryGetValue(a.Id, out var count) ? count : 0,
                 CoverArtPath = a.CoverArtPath,
                 CreatedAt = a.CreatedAt
-            })
-            .ToListAsync();
+            };
+        }).ToList();
 
         isLoading = false;
     }
