@@ -330,19 +330,45 @@ Extended artist information with albums.
 ```
 
 ### Album
-Represents a music album.
+Represents a music album. Supports both single-valued and multi-valued artists and genres for backward compatibility.
 
+**Example: Single Artist Album**
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440002",
   "title": "The Dark Side of the Moon",
   "artistId": "550e8400-e29b-41d4-a716-446655440001",
   "artistName": "Pink Floyd",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001"],
+  "artistNames": ["Pink Floyd"],
   "year": 1973,
   "trackCount": 10,
   "genre": "Progressive Rock",
+  "genres": ["Progressive Rock"],
   "coverArtPath": "/artwork/550e8400.jpg",
-  "releaseDate": "1973-03-01T00:00:00Z"
+  "releaseDate": "1973-03-01T00:00:00Z",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Pink Floyd"
+}
+```
+
+**Example: Multi-Artist Album**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440006",
+  "title": "Collaboration Album",
+  "artistId": "550e8400-e29b-41d4-a716-446655440001",
+  "artistName": "Primary Artist",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440005"],
+  "artistNames": ["Primary Artist", "Secondary Artist"],
+  "year": 2023,
+  "trackCount": 12,
+  "genre": "Electronic",
+  "genres": ["Electronic", "House", "Techno"],
+  "coverArtPath": "/artwork/collaboration.jpg",
+  "releaseDate": "2023-06-15T00:00:00Z",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Primary Artist"
 }
 ```
 
@@ -350,13 +376,24 @@ Represents a music album.
 |-------|------|-------------|-------------|
 | id | string (UUID) | Unique album identifier | UUID v4 |
 | title | string | Album title | 1-255 characters |
-| artistId | string (UUID) | Artist identifier | UUID v4 |
-| artistName | string | Artist name | 1-255 characters |
+| artistId | string (UUID) | Primary artist identifier (first artist in list). Maintained for backward compatibility. | UUID v4 |
+| artistName | string | Primary artist name (first artist in list). Maintained for backward compatibility. | 1-255 characters |
+| artistIds | string[] | Array of all artist IDs associated with this album. Empty array if no artists. First element is the primary artist. | Array of UUID v4 |
+| artistNames | string[] | Array of all artist names associated with this album. Empty array if no artists. First element is the primary artist. | Array of 1-255 characters |
+| primaryArtistId | string (UUID) | Alias for `artistId`. Returns the primary artist ID for backward compatibility. | UUID v4 |
+| primaryArtistName | string | Alias for `artistName`. Returns the primary artist name for backward compatibility. | 1-255 characters |
 | year | integer? | Release year | Nullable, 1900-current year |
 | trackCount | integer | Number of tracks | >= 0 |
-| genre | string? | Primary genre | Nullable, 1-100 characters |
+| genre | string? | Primary genre (first genre in list). Maintained for backward compatibility. | Nullable, 1-100 characters |
+| genres | string[] | Array of all genre names associated with this album. Empty array if no genres. First element is the primary genre. | Array of 1-100 characters |
 | coverArtPath | string? | Path to cover art | Nullable, relative URL |
 | releaseDate | datetime? | Full release date | Nullable, ISO 8601 |
+
+**Backward Compatibility Notes:**
+- Single-value fields (`artistId`, `artistName`, `genre`) are always present and contain the primary (first) artist/genre
+- New array fields (`artistIds`, `artistNames`, `genres`) contain all values, with the primary value first
+- The `primaryArtistId` and `primaryArtistName` properties are aliases that return the same values as `artistId` and `artistName`
+- Existing API clients can continue using single-value fields without modification
 
 ### AlbumDetail
 Extended album information with tracks.
@@ -386,25 +423,57 @@ Extended album information with tracks.
 ```
 
 ### Track
-Represents a music track.
+Represents a music track. Supports both single-valued and multi-valued artists and genres for backward compatibility.
 
+**Example: Single Artist Track**
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440003",
   "title": "Money",
   "artistId": "550e8400-e29b-41d4-a716-446655440001",
   "artistName": "Pink Floyd",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001"],
+  "artistNames": ["Pink Floyd"],
   "albumId": "550e8400-e29b-41d4-a716-446655440002",
   "albumTitle": "The Dark Side of the Moon",
   "trackNumber": 6,
   "discNumber": 1,
   "durationMs": 382000,
   "genre": "Progressive Rock",
+  "genres": ["Progressive Rock"],
   "year": 1973,
   "fileSize": 9175040,
   "bitrate": 320,
   "codec": "MP3",
-  "filePath": "/music/Pink Floyd/Dark Side/06 - Money.mp3"
+  "filePath": "/music/Pink Floyd/Dark Side/06 - Money.mp3",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Pink Floyd"
+}
+```
+
+**Example: Multi-Artist Track**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440004",
+  "title": "Collaboration Track",
+  "artistId": "550e8400-e29b-41d4-a716-446655440001",
+  "artistName": "Primary Artist",
+  "artistIds": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440005"],
+  "artistNames": ["Primary Artist", "Secondary Artist"],
+  "albumId": "550e8400-e29b-41d4-a716-446655440002",
+  "albumTitle": "Collaboration Album",
+  "trackNumber": 1,
+  "discNumber": 1,
+  "durationMs": 240000,
+  "genre": "Electronic",
+  "genres": ["Electronic", "House"],
+  "year": 2023,
+  "fileSize": 5242880,
+  "bitrate": 320,
+  "codec": "MP3",
+  "filePath": "/music/Collaboration Album/01 - Collaboration Track.mp3",
+  "primaryArtistId": "550e8400-e29b-41d4-a716-446655440001",
+  "primaryArtistName": "Primary Artist"
 }
 ```
 
@@ -412,19 +481,30 @@ Represents a music track.
 |-------|------|-------------|-------------|
 | id | string (UUID) | Unique track identifier | UUID v4 |
 | title | string | Track title | 1-255 characters |
-| artistId | string (UUID) | Artist identifier | UUID v4 |
-| artistName | string | Artist name | 1-255 characters |
+| artistId | string (UUID) | Primary artist identifier (first artist in list). Maintained for backward compatibility. | UUID v4 |
+| artistName | string | Primary artist name (first artist in list). Maintained for backward compatibility. | 1-255 characters |
+| artistIds | string[] | Array of all artist IDs associated with this track. Empty array if no artists. First element is the primary artist. | Array of UUID v4 |
+| artistNames | string[] | Array of all artist names associated with this track. Empty array if no artists. First element is the primary artist. | Array of 1-255 characters |
+| primaryArtistId | string (UUID) | Alias for `artistId`. Returns the primary artist ID for backward compatibility. | UUID v4 |
+| primaryArtistName | string | Alias for `artistName`. Returns the primary artist name for backward compatibility. | 1-255 characters |
 | albumId | string? | Album identifier | Nullable, UUID v4 |
 | albumTitle | string? | Album title | Nullable, 1-255 characters |
 | trackNumber | integer? | Track number on album | Nullable, 1-999 |
 | discNumber | integer? | Disc number | Nullable, 1-99 |
 | durationMs | integer | Duration in milliseconds | >= 0 |
-| genre | string? | Track genre | Nullable, 1-100 characters |
+| genre | string? | Primary genre (first genre in list). Maintained for backward compatibility. | Nullable, 1-100 characters |
+| genres | string[] | Array of all genre names associated with this track. Empty array if no genres. First element is the primary genre. | Array of 1-100 characters |
 | year | integer? | Release year | Nullable, 1900-current year |
 | fileSize | integer? | File size in bytes | Nullable, >= 0 |
 | bitrate | integer? | Audio bitrate in kbps | Nullable, 32-320 |
 | codec | string? | Audio codec | Nullable, e.g., "MP3", "FLAC" |
 | filePath | string? | File system path | Nullable, system path |
+
+**Backward Compatibility Notes:**
+- Single-value fields (`artistId`, `artistName`, `genre`) are always present and contain the primary (first) artist/genre
+- New array fields (`artistIds`, `artistNames`, `genres`) contain all values, with the primary value first
+- The `primaryArtistId` and `primaryArtistName` properties are aliases that return the same values as `artistId` and `artistName`
+- Existing API clients can continue using single-value fields without modification
 
 ### TrackDetail
 Extended track information.
@@ -1508,6 +1588,57 @@ Standard error response format.
 |-------|------|-------------|
 | error | string | Error message |
 | details | string? | Additional error details (optional) |
+
+## Multi-Valued Tags Configuration
+
+The `MultiValuedTags` configuration section controls how the library scanner parses multi-valued tags from audio files. This configuration is specified in `appsettings.json` or via environment variables.
+
+### MultiValuedTagsOptions
+
+```json
+{
+  "MultiValuedTags": {
+    "Delimiter": "/",
+    "EnableDelimiterParsing": true,
+    "PreferredDelimiters": ["/", ";", ","]
+  }
+}
+```
+
+| Field | Type | Description | Default |
+|-------|------|-------------|---------|
+| Delimiter | string | Primary delimiter used for parsing delimiter-separated values in single-value tags | "/" |
+| EnableDelimiterParsing | boolean | Whether to parse delimiter-separated values when native multi-valued tags are not available | true |
+| PreferredDelimiters | string[] | Array of delimiters to try when parsing, in order of preference. Used when a tag contains multiple delimiters. | ["/", ";", ","] |
+
+**Configuration Details:**
+
+1. **Native Multi-Valued Tags**: The scanner first attempts to read native multi-valued tags from audio files (e.g., ID3v2.4 `TPE2` frame with multiple values). These are preferred over delimiter parsing.
+
+2. **Delimiter Parsing**: When native multi-valued tags are not available or empty, the scanner falls back to parsing delimiter-separated values from single-value tags (e.g., "Artist A / Artist B").
+
+3. **Delimiter Priority**: When multiple delimiters are found in a tag, the scanner tries delimiters in the order specified in `PreferredDelimiters`.
+
+4. **Environment Variables**: Configuration can be overridden using environment variables:
+   - `MultiValuedTags__Delimiter`
+   - `MultiValuedTags__EnableDelimiterParsing`
+   - `MultiValuedTags__PreferredDelimiters__0`, `MultiValuedTags__PreferredDelimiters__1`, etc.
+
+**Example Configuration:**
+```json
+{
+  "MultiValuedTags": {
+    "Delimiter": ";",
+    "EnableDelimiterParsing": true,
+    "PreferredDelimiters": [";", "/", ","]
+  }
+}
+```
+
+This configuration will:
+- Use semicolon (`;`) as the primary delimiter
+- Enable delimiter parsing when native tags are unavailable
+- Try semicolon first, then forward slash, then comma when multiple delimiters are present
 
 ## Field Constraints
 
