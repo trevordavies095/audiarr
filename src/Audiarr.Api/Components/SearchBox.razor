@@ -361,6 +361,13 @@
                 .Take(limit)
                 .ToListAsync();
 
+            // Batch query track counts to avoid N+1 queries
+            var albumIds = albumsList.Select(a => a.Id).ToList();
+            var trackCounts = await DbContext.Tracks
+                .Where(t => albumIds.Contains(t.AlbumId))
+                .GroupBy(t => t.AlbumId)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
             albumResults = albumsList.Select(a =>
             {
                 // Build ordered artist list: primary artist first, then others alphabetically
@@ -435,7 +442,7 @@
                     Genres = genres,
                     Year = a.Year ?? a.ReleaseYear,
                     CoverArtPath = a.CoverArtPath,
-                    TrackCount = DbContext.Tracks.Count(t => t.AlbumId == a.Id)
+                    TrackCount = trackCounts.TryGetValue(a.Id, out var count) ? count : 0
                 };
             }).ToList();
 
