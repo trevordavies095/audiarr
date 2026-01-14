@@ -237,11 +237,8 @@ public class AlbumEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<AlbumResponse>();
-        Assert.NotNull(result);
-        Assert.NotNull(result.Data);
-
-        var album = result.Data;
+        var album = await response.Content.ReadFromJsonAsync<AlbumDto>();
+        Assert.NotNull(album);
         Assert.NotNull(album.ArtistIds);
         Assert.NotNull(album.ArtistNames);
         Assert.NotNull(album.Genres);
@@ -262,10 +259,9 @@ public class AlbumEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<AlbumResponse>();
-        Assert.NotNull(result);
+        var album = await response.Content.ReadFromJsonAsync<AlbumDto>();
+        Assert.NotNull(album);
         
-        var album = result!.Data;
         TestHelpers.AssertMultiValuedTags(album, 3, 3);
         Assert.Contains("Artist E", album.ArtistNames);
         Assert.Contains("Artist F", album.ArtistNames);
@@ -295,10 +291,5 @@ public class AlbumEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
         public int Limit { get; set; }
         public int Total { get; set; }
         public int TotalPages { get; set; }
-    }
-
-    private class AlbumResponse
-    {
-        public AlbumDto Data { get; set; } = null!;
     }
 }

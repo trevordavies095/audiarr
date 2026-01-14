@@ -238,11 +238,8 @@ public class TrackEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<TrackResponse>();
-        Assert.NotNull(result);
-        Assert.NotNull(result.Data);
-
-        var track = result.Data;
+        var track = await response.Content.ReadFromJsonAsync<TrackDto>();
+        Assert.NotNull(track);
         Assert.NotNull(track.ArtistIds);
         Assert.NotNull(track.ArtistNames);
         Assert.NotNull(track.Genres);
@@ -263,10 +260,9 @@ public class TrackEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<TrackResponse>();
-        Assert.NotNull(result);
+        var track = await response.Content.ReadFromJsonAsync<TrackDto>();
+        Assert.NotNull(track);
         
-        var track = result!.Data;
         TestHelpers.AssertMultiValuedTags(track, 3, 3);
         Assert.Contains("Artist E", track.ArtistNames);
         Assert.Contains("Artist F", track.ArtistNames);
@@ -296,10 +292,5 @@ public class TrackEndpointsIntegrationTests : IClassFixture<AudiarrWebApplicatio
         public int Limit { get; set; }
         public int Total { get; set; }
         public int TotalPages { get; set; }
-    }
-
-    private class TrackResponse
-    {
-        public TrackDto Data { get; set; } = null!;
     }
 }
