@@ -218,16 +218,25 @@ else
         isLoading = true;
         try
         {
+            // Load artist first
             artist = await DbContext.Artists
-                .Include(a => a.Albums)
-                .ThenInclude(al => al.Tracks)
                 .FirstOrDefaultAsync(a => a.Id == Id);
 
             if (artist != null)
             {
-                albums = artist.Albums
+                // Query albums where artist is primary OR appears in many-to-many relationship
+                var albumsData = await DbContext.Albums
+                    .Include(a => a.Artist)
+                    .Include(a => a.Tracks)
+                    .Include(a => a.AlbumArtists).ThenInclude(aa => aa.Artist)
+                    .Include(a => a.AlbumGenres).ThenInclude(ag => ag.Genre)
+                    .Where(a => a.ArtistId == Id || a.AlbumArtists.Any(aa => aa.ArtistId == Id))
+                    .Distinct()
                     .OrderByDescending(a => a.Year)
                     .ThenBy(a => a.Title)
+                    .ToListAsync();
+
+                albums = albumsData
                     .Select(a => new AlbumViewModel
                     {
                         Id = a.Id,
@@ -239,7 +248,9 @@ else
                     })
                     .ToList();
 
-                totalTracks = artist.Albums.Sum(a => a.Tracks.Count);
+                // Count all tracks where artist appears (primary OR contributing)
+                totalTracks = await DbContext.Tracks
+                    .CountAsync(t => t.ArtistId == Id || t.TrackArtists.Any(ta => ta.ArtistId == Id));
             }
         }
         catch (Exception ex)
