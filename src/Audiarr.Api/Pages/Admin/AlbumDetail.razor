@@ -57,18 +57,45 @@ else
             <div class="col-md-8">
                 <h1 class="mb-2">@album.Title</h1>
                 <h3 class="mb-3">
-                    <a href="/admin/artists/@album.ArtistId" class="text-decoration-none text-light">
-                        @album.Artist?.Name
-                    </a>
+                    @if (albumArtistNames != null && albumArtistNames.Length > 0)
+                    {
+                        @for (int i = 0; i < albumArtistNames.Length; i++)
+                        {
+                            <a href="/admin/artists/@albumArtistIds[i]" class="text-decoration-none text-light">
+                                @albumArtistNames[i]
+                            </a>
+                            @if (i < albumArtistNames.Length - 1)
+                            {
+                                <text>, </text>
+                            }
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(album.ArtistId) && album.Artist != null)
+                    {
+                        <a href="/admin/artists/@album.ArtistId" class="text-decoration-none text-light">
+                            @album.Artist.Name
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="text-light">Unknown Artist</span>
+                    }
                 </h3>
                 <div class="album-info mb-3">
                     @if (album.Year.HasValue)
                     {
                         <span class="badge bg-light text-dark me-2">@album.Year</span>
                     }
-                    @if (!string.IsNullOrEmpty(firstTrackGenre))
+                    @if (albumGenres != null && albumGenres.Length > 0)
                     {
-                        <span class="badge bg-light text-dark me-2">@firstTrackGenre</span>
+                        @foreach (var genre in albumGenres)
+                        {
+                            <span class="badge bg-light text-dark me-2">@genre</span>
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(album.Genre))
+                    {
+                        <span class="badge bg-light text-dark me-2">@album.Genre</span>
                     }
                     <span class="badge bg-light text-dark">@tracks.Count track@(tracks.Count != 1 ? "s" : "")</span>
                     <span class="badge bg-light text-dark">@FormatDuration(totalDuration)</span>
@@ -110,9 +137,39 @@ else
                             </td>
                             <td>
                                 <div class="track-title">@track.Title</div>
-                                @if (!string.IsNullOrEmpty(track.AlbumArtist) && track.AlbumArtist != album.Artist?.Name)
+                                @if (DoTrackArtistsDiffer(track))
                                 {
-                                    <small class="text-muted">@track.AlbumArtist</small>
+                                    <small class="text-muted">
+                                        @if (track.ArtistNames != null && track.ArtistNames.Length > 0)
+                                        {
+                                            @for (int i = 0; i < track.ArtistNames.Length; i++)
+                                            {
+                                                <a href="/admin/artists/@track.ArtistIds[i]" @onclick:stopPropagation="true" class="text-muted text-decoration-none">
+                                                    @track.ArtistNames[i]
+                                                </a>
+                                                @if (i < track.ArtistNames.Length - 1)
+                                                {
+                                                    <text>, </text>
+                                                }
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(track.AlbumArtist))
+                                        {
+                                            @track.AlbumArtist
+                                        }
+                                    </small>
+                                }
+                                @if (DoTrackGenresDiffer(track))
+                                {
+                                    <div class="mt-1">
+                                        @if (track.Genres != null && track.Genres.Length > 0)
+                                        {
+                                            @foreach (var genre in track.Genres)
+                                            {
+                                                <span class="badge bg-secondary me-1">@genre</span>
+                                            }
+                                        }
+                                    </div>
                                 }
                             </td>
                             <td class="text-muted">@FormatDuration(track.DurationMs)</td>
@@ -248,7 +305,9 @@ else
     private Album? album;
     private List<TrackViewModel> tracks = new();
     private int totalDuration = 0;
-    private string? firstTrackGenre;
+    private string[] albumArtistIds = Array.Empty<string>();
+    private string[] albumArtistNames = Array.Empty<string>();
+    private string[] albumGenres = Array.Empty<string>();
     private bool isLoading = true;
 
     public class TrackViewModel
@@ -259,6 +318,9 @@ else
         public int? DiscNumber { get; set; }
         public int DurationMs { get; set; }
         public string? AlbumArtist { get; set; }
+        public string[] ArtistIds { get; set; } = Array.Empty<string>();
+        public string[] ArtistNames { get; set; } = Array.Empty<string>();
+        public string[] Genres { get; set; } = Array.Empty<string>();
     }
 
     protected override async Task OnInitializedAsync()
@@ -273,27 +335,160 @@ else
         {
             album = await DbContext.Albums
                 .Include(a => a.Artist)
+                .Include(a => a.AlbumArtists).ThenInclude(aa => aa.Artist)
+                .Include(a => a.AlbumGenres).ThenInclude(ag => ag.Genre)
                 .Include(a => a.Tracks)
+                    .ThenInclude(t => t.TrackArtists).ThenInclude(ta => ta.Artist)
+                .Include(a => a.Tracks)
+                    .ThenInclude(t => t.TrackGenres).ThenInclude(tg => tg.Genre)
                 .FirstOrDefaultAsync(a => a.Id == Id);
 
             if (album != null)
             {
-                tracks = album.Tracks
+                // Build ordered album artist list: primary artist first, then others alphabetically
+                var primaryArtist = album.AlbumArtists
+                    .FirstOrDefault(aa => aa.ArtistId == album.ArtistId && aa.Artist != null)
+                    ?.Artist;
+
+                // If primary artist not found in many-to-many collection but exists in single-value field, use it
+                if (primaryArtist == null && !string.IsNullOrEmpty(album.ArtistId) && album.Artist != null)
+                {
+                    primaryArtist = album.Artist;
+                }
+
+                var otherArtists = album.AlbumArtists
+                    .Where(aa => aa.Artist != null && aa.ArtistId != album.ArtistId)
+                    .Select(aa => aa.Artist!)
+                    .Distinct()
+                    .OrderBy(ar => ar.Name)
+                    .ToList();
+
+                var allAlbumArtists = primaryArtist != null
+                    ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                    : otherArtists;
+
+                // Fallback to single-value artist if no many-to-many data
+                if (!allAlbumArtists.Any() && !string.IsNullOrEmpty(album.ArtistId))
+                {
+                    if (album.Artist != null)
+                    {
+                        allAlbumArtists = new List<Artist> { album.Artist };
+                    }
+                }
+
+                albumArtistIds = allAlbumArtists.Select(ar => ar.Id).ToArray();
+                albumArtistNames = allAlbumArtists.Select(ar => ar.Name).ToArray();
+
+                // Build ordered album genre list: primary genre first (matching single-value Genre), then others alphabetically
+                var primaryGenre = album.AlbumGenres
+                    .FirstOrDefault(ag => ag.Genre != null && ag.Genre.Name == album.Genre)
+                    ?.Genre;
+                var otherGenres = album.AlbumGenres
+                    .Where(ag => ag.Genre != null && ag.Genre.Name != album.Genre)
+                    .Select(ag => ag.Genre!)
+                    .Distinct()
+                    .OrderBy(g => g.Name)
+                    .ToList();
+
+                var allAlbumGenres = primaryGenre != null
+                    ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+                    : otherGenres;
+
+                // Fallback to single-value genre if no many-to-many data
+                if (!allAlbumGenres.Any() && !string.IsNullOrEmpty(album.Genre))
+                {
+                    // No many-to-many data, use single-value string
+                    albumGenres = new[] { album.Genre };
+                }
+                else
+                {
+                    albumGenres = allAlbumGenres.Select(g => g.Name).ToArray();
+                }
+
+                // Build track data with multiple artists and genres
+                var orderedTracks = album.Tracks
                     .OrderBy(t => t.DiscNumber ?? 1)
                     .ThenBy(t => t.TrackNumber ?? 0)
-                    .Select(t => new TrackViewModel
+                    .ToList();
+
+                tracks = orderedTracks.Select(t =>
+                {
+                    // Build ordered artist list: primary artist first, then others alphabetically
+                    var trackPrimaryArtist = t.TrackArtists
+                        .FirstOrDefault(ta => ta.ArtistId == t.ArtistId && ta.Artist != null)
+                        ?.Artist;
+
+                    // If primary artist not found in many-to-many collection but exists in single-value field, use it
+                    if (trackPrimaryArtist == null && !string.IsNullOrEmpty(t.ArtistId) && t.Artist != null)
+                    {
+                        trackPrimaryArtist = t.Artist;
+                    }
+
+                    var trackOtherArtists = t.TrackArtists
+                        .Where(ta => ta.Artist != null && ta.ArtistId != t.ArtistId)
+                        .Select(ta => ta.Artist!)
+                        .Distinct()
+                        .OrderBy(ar => ar.Name)
+                        .ToList();
+
+                    var allTrackArtists = trackPrimaryArtist != null
+                        ? new[] { trackPrimaryArtist }.Concat(trackOtherArtists).ToList()
+                        : trackOtherArtists;
+
+                    // Fallback to single-value artist if no many-to-many data
+                    if (!allTrackArtists.Any() && !string.IsNullOrEmpty(t.ArtistId))
+                    {
+                        if (t.Artist != null)
+                        {
+                            allTrackArtists = new List<Artist> { t.Artist };
+                        }
+                    }
+
+                    var trackArtistIds = allTrackArtists.Select(ar => ar.Id).ToArray();
+                    var trackArtistNames = allTrackArtists.Select(ar => ar.Name).ToArray();
+
+                    // Build genre list: primary genre first (matching single-value Genre), then others alphabetically
+                    var trackPrimaryGenre = t.TrackGenres
+                        .FirstOrDefault(tg => tg.Genre != null && tg.Genre.Name == t.Genre)
+                        ?.Genre;
+                    var trackOtherGenres = t.TrackGenres
+                        .Where(tg => tg.Genre != null && tg.Genre.Name != t.Genre)
+                        .Select(tg => tg.Genre!)
+                        .Distinct()
+                        .OrderBy(g => g.Name)
+                        .ToList();
+
+                    var allTrackGenres = trackPrimaryGenre != null
+                        ? new[] { trackPrimaryGenre }.Concat(trackOtherGenres).ToList()
+                        : trackOtherGenres;
+
+                    // Fallback to single-value genre if no many-to-many data
+                    string[] trackGenres;
+                    if (!allTrackGenres.Any() && !string.IsNullOrEmpty(t.Genre))
+                    {
+                        // No many-to-many data, use single-value string
+                        trackGenres = new[] { t.Genre };
+                    }
+                    else
+                    {
+                        trackGenres = allTrackGenres.Select(g => g.Name).ToArray();
+                    }
+
+                    return new TrackViewModel
                     {
                         Id = t.Id,
                         Title = t.Title,
                         TrackNumber = t.TrackNumber,
                         DiscNumber = t.DiscNumber,
                         DurationMs = t.DurationMs,
-                        AlbumArtist = t.Artist?.Name
-                    })
-                    .ToList();
+                        AlbumArtist = t.Artist?.Name,
+                        ArtistIds = trackArtistIds,
+                        ArtistNames = trackArtistNames,
+                        Genres = trackGenres
+                    };
+                }).ToList();
 
                 totalDuration = tracks.Sum(t => t.DurationMs);
-                firstTrackGenre = album.Tracks.FirstOrDefault()?.Genre;
             }
         }
         catch (Exception ex)
@@ -345,5 +540,32 @@ else
     private void HandleImageError(Microsoft.AspNetCore.Components.Web.ErrorEventArgs e)
     {
         // Image failed to load, placeholder will be shown via CSS
+    }
+
+    private bool DoTrackArtistsDiffer(TrackViewModel track)
+    {
+        if (track.ArtistNames != null && track.ArtistNames.Length > 0)
+        {
+            var trackArtistsSet = new HashSet<string>(track.ArtistNames);
+            var albumArtistsSet = new HashSet<string>(albumArtistNames);
+            return !trackArtistsSet.SetEquals(albumArtistsSet);
+        }
+        else if (!string.IsNullOrEmpty(track.AlbumArtist))
+        {
+            var albumArtistName = albumArtistNames.Length > 0 ? albumArtistNames[0] : album?.Artist?.Name;
+            return track.AlbumArtist != albumArtistName;
+        }
+        return false;
+    }
+
+    private bool DoTrackGenresDiffer(TrackViewModel track)
+    {
+        if (track.Genres != null && track.Genres.Length > 0)
+        {
+            var trackGenresSet = new HashSet<string>(track.Genres);
+            var albumGenresSet = new HashSet<string>(albumGenres);
+            return !trackGenresSet.SetEquals(albumGenresSet);
+        }
+        return false;
     }
 }
