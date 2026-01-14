@@ -310,6 +310,12 @@ else
                 .FirstOrDefault(aa => aa.ArtistId == a.ArtistId && aa.Artist != null)
                 ?.Artist;
 
+            // If primary artist not found in many-to-many collection but exists in single-value field, use it
+            if (primaryArtist == null && !string.IsNullOrEmpty(a.ArtistId) && a.Artist != null)
+            {
+                primaryArtist = a.Artist;
+            }
+
             var otherArtists = a.AlbumArtists
                 .Where(aa => aa.Artist != null && aa.ArtistId != a.ArtistId)
                 .Select(aa => aa.Artist!)
