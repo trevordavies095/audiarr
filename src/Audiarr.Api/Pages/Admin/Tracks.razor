@@ -315,8 +315,8 @@ else
         {
             query = query.Where(t => 
                 t.Title.Contains(searchQuery) || 
-                t.Artist.Name.Contains(searchQuery) ||
-                t.Album.Title.Contains(searchQuery));
+                (t.Artist != null && t.Artist.Name.Contains(searchQuery)) ||
+                (t.Album != null && t.Album.Title.Contains(searchQuery)));
         }
 
         totalTracks = await query.CountAsync();
@@ -326,8 +326,8 @@ else
         query = sortField switch
         {
             "Title" => sortAscending ? query.OrderBy(t => t.Title) : query.OrderByDescending(t => t.Title),
-            "Artist" => sortAscending ? query.OrderBy(t => t.Artist.Name) : query.OrderByDescending(t => t.Artist.Name),
-            "Album" => sortAscending ? query.OrderBy(t => t.Album.Title) : query.OrderByDescending(t => t.Album.Title),
+            "Artist" => sortAscending ? query.OrderBy(t => t.Artist != null ? t.Artist.Name : string.Empty) : query.OrderByDescending(t => t.Artist != null ? t.Artist.Name : string.Empty),
+            "Album" => sortAscending ? query.OrderBy(t => t.Album != null ? t.Album.Title : string.Empty) : query.OrderByDescending(t => t.Album != null ? t.Album.Title : string.Empty),
             "Duration" => sortAscending ? query.OrderBy(t => t.DurationMs) : query.OrderByDescending(t => t.DurationMs),
             "Year" => sortAscending ? query.OrderBy(t => t.Year ?? 0) : query.OrderByDescending(t => t.Year ?? 0),
             "PlayCount" => sortAscending ? query.OrderBy(t => t.PlayCount) : query.OrderByDescending(t => t.PlayCount),
@@ -342,7 +342,8 @@ else
         tracks = tracksList.Select(t => 
         {
             var trackArtists = t.TrackArtists
-                .Select(ta => new { ta.ArtistId, ta.Artist.Name })
+                .Where(ta => ta.Artist != null)
+                .Select(ta => new { ta.ArtistId, ta.Artist!.Name })
                 .Distinct()
                 .OrderBy(ta => ta.Name)
                 .ToList();
@@ -352,14 +353,14 @@ else
                 Id = t.Id,
                 Title = t.Title,
                 ArtistId = t.ArtistId,
-                ArtistName = t.Artist.Name,
+                ArtistName = t.Artist?.Name ?? string.Empty,
                 ArtistIds = trackArtists.Select(ta => ta.ArtistId).ToArray(),
                 ArtistNames = trackArtists.Select(ta => ta.Name).ToArray(),
                 AlbumId = t.AlbumId,
-                AlbumTitle = t.Album.Title,
+                AlbumTitle = t.Album?.Title ?? string.Empty,
                 DurationMs = t.DurationMs,
                 Genre = t.Genre,
-                Genres = t.TrackGenres.Select(tg => tg.Genre.Name).Distinct().OrderBy(g => g).ToArray(),
+                Genres = t.TrackGenres.Where(tg => tg.Genre != null).Select(tg => tg.Genre!.Name).Distinct().OrderBy(g => g).ToArray(),
                 Year = t.Year,
                 PlayCount = t.PlayCount,
                 LastPlayedDate = t.LastPlayedDate
