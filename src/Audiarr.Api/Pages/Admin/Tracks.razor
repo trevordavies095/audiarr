@@ -342,12 +342,33 @@ else
 
         tracks = tracksList.Select(t => 
         {
-            var trackArtists = t.TrackArtists
-                .Where(ta => ta.Artist != null)
-                .Select(ta => new { ta.ArtistId, ta.Artist!.Name })
+            // Build ordered artist list: primary artist first, then others alphabetically
+            var primaryArtist = t.TrackArtists
+                .FirstOrDefault(ta => ta.ArtistId == t.ArtistId && ta.Artist != null)
+                ?.Artist;
+
+            var otherArtists = t.TrackArtists
+                .Where(ta => ta.Artist != null && ta.ArtistId != t.ArtistId)
+                .Select(ta => ta.Artist!)
                 .Distinct()
-                .OrderBy(ta => ta.Name)
+                .OrderBy(ar => ar.Name)
                 .ToList();
+
+            var allArtists = primaryArtist != null
+                ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                : otherArtists;
+
+            // Fallback to single-value artist if no many-to-many data
+            if (!allArtists.Any() && !string.IsNullOrEmpty(t.ArtistId))
+            {
+                if (t.Artist != null)
+                {
+                    allArtists = new List<Artist> { t.Artist };
+                }
+            }
+
+            var artistIds = allArtists.Select(ar => ar.Id).ToArray();
+            var artistNames = allArtists.Select(ar => ar.Name).ToArray();
             
             return new TrackViewModel
             {
@@ -355,8 +376,8 @@ else
                 Title = t.Title,
                 ArtistId = t.ArtistId,
                 ArtistName = t.Artist != null ? t.Artist.Name : string.Empty,
-                ArtistIds = trackArtists.Select(ta => ta.ArtistId).ToArray(),
-                ArtistNames = trackArtists.Select(ta => ta.Name).ToArray(),
+                ArtistIds = artistIds,
+                ArtistNames = artistNames,
                 AlbumId = t.AlbumId,
                 AlbumTitle = t.Album != null ? t.Album.Title : string.Empty,
                 DurationMs = t.DurationMs,
