@@ -139,7 +139,7 @@ else
                                     }
                                 }
                             }
-                            else if (!string.IsNullOrEmpty(track.ArtistId))
+                            else if (!string.IsNullOrEmpty(track.ArtistId) && !string.IsNullOrEmpty(track.ArtistName))
                             {
                                 <a href="/admin/artists/@track.ArtistId" @onclick:stopPropagation="true">
                                     @track.ArtistName
