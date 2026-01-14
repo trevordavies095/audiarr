@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
 @using Audiarr.Data.Context
+@using Audiarr.Core.Entities
 @attribute [Authorize]
 @inject NavigationManager Navigation
 @inject AudiarrContext DbContext
@@ -91,8 +92,30 @@ else
                             <div class="card-body">
                                 <h6 class="card-title text-truncate" title="@album.Title">@album.Title</h6>
                                 <p class="card-text">
-                                    <small class="text-muted text-truncate d-block" title="@album.ArtistName">
-                                        @album.ArtistName
+                                    <small class="text-muted text-truncate d-block" title="@(album.ArtistNames != null && album.ArtistNames.Length > 0 ? string.Join(", ", album.ArtistNames) : album.ArtistName)">
+                                        @if (album.ArtistNames != null && album.ArtistNames.Length > 0)
+                                        {
+                                            @for (int i = 0; i < album.ArtistNames.Length; i++)
+                                            {
+                                                <a href="/admin/artists/@album.ArtistIds[i]" @onclick:stopPropagation="true">
+                                                    @album.ArtistNames[i]
+                                                </a>
+                                                @if (i < album.ArtistNames.Length - 1)
+                                                {
+                                                    <text>, </text>
+                                                }
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(album.ArtistId) && !string.IsNullOrEmpty(album.ArtistName))
+                                        {
+                                            <a href="/admin/artists/@album.ArtistId" @onclick:stopPropagation="true">
+                                                @album.ArtistName
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Unknown Artist</span>
+                                        }
                                     </small>
                                     <small class="text-muted">
                                         @if (album.Year.HasValue)
@@ -145,11 +168,38 @@ else
                                     <a href="/admin/tracks/@track.Id" class="text-decoration-none">
                                         @track.Title
                                     </a>
+                                    @if (track.Genres != null && track.Genres.Length > 0)
+                                    {
+                                        @foreach (var genre in track.Genres)
+                                        {
+                                            <span class="badge bg-secondary ms-2">@genre</span>
+                                        }
+                                    }
                                 </td>
                                 <td>
-                                    <a href="/admin/artists/@track.ArtistId" class="text-decoration-none text-muted">
-                                        @track.ArtistName
-                                    </a>
+                                    @if (track.ArtistNames != null && track.ArtistNames.Length > 0)
+                                    {
+                                        @for (int i = 0; i < track.ArtistNames.Length; i++)
+                                        {
+                                            <a href="/admin/artists/@track.ArtistIds[i]" class="text-decoration-none text-muted" @onclick:stopPropagation="true">
+                                                @track.ArtistNames[i]
+                                            </a>
+                                            @if (i < track.ArtistNames.Length - 1)
+                                            {
+                                                <text>, </text>
+                                            }
+                                        }
+                                    }
+                                    else if (!string.IsNullOrEmpty(track.ArtistId) && !string.IsNullOrEmpty(track.ArtistName))
+                                    {
+                                        <a href="/admin/artists/@track.ArtistId" class="text-decoration-none text-muted" @onclick:stopPropagation="true">
+                                            @track.ArtistName
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Unknown Artist</span>
+                                    }
                                 </td>
                                 <td>
                                     @if (!string.IsNullOrEmpty(track.AlbumTitle))
@@ -251,6 +301,9 @@ else
         public string Title { get; set; } = "";
         public string ArtistId { get; set; } = "";
         public string ArtistName { get; set; } = "";
+        public string[] ArtistIds { get; set; } = Array.Empty<string>();
+        public string[] ArtistNames { get; set; } = Array.Empty<string>();
+        public string[] Genres { get; set; } = Array.Empty<string>();
         public int? Year { get; set; }
         public string? CoverArtPath { get; set; }
         public int TrackCount { get; set; }
@@ -262,6 +315,9 @@ else
         public string Title { get; set; } = "";
         public string ArtistId { get; set; } = "";
         public string ArtistName { get; set; } = "";
+        public string[] ArtistIds { get; set; } = Array.Empty<string>();
+        public string[] ArtistNames { get; set; } = Array.Empty<string>();
+        public string[] Genres { get; set; } = Array.Empty<string>();
         public string? AlbumId { get; set; }
         public string? AlbumTitle { get; set; }
         public int DurationMs { get; set; }
@@ -309,52 +365,200 @@ else
                 {
                     Id = a.Id,
                     Name = a.Name,
-                    AlbumCount = DbContext.Albums.Count(al => al.ArtistId == a.Id),
-                    TrackCount = DbContext.Tracks.Count(t => t.ArtistId == a.Id)
+                    AlbumCount = DbContext.Albums.Count(al => al.ArtistId == a.Id || al.AlbumArtists.Any(aa => aa.ArtistId == a.Id)),
+                    TrackCount = DbContext.Tracks.Count(t => t.ArtistId == a.Id || t.TrackArtists.Any(ta => ta.ArtistId == a.Id))
                 })
                 .ToListAsync();
 
             // Search albums
-            albums = await DbContext.Albums
+            var albumsList = await DbContext.Albums
                 .Include(a => a.Artist)
+                .Include(a => a.AlbumArtists).ThenInclude(aa => aa.Artist)
+                .Include(a => a.AlbumGenres).ThenInclude(ag => ag.Genre)
                 .Where(a => a.Title.ToLower().Contains(searchTerm) || 
-                           (a.TitleNormalized != null && a.TitleNormalized.Contains(searchTerm)))
+                           (a.TitleNormalized != null && a.TitleNormalized.Contains(searchTerm)) ||
+                           (a.Artist != null && a.Artist.Name.ToLower().Contains(searchTerm)) ||
+                           (a.Genre != null && a.Genre.ToLower().Contains(searchTerm)) ||
+                           a.AlbumArtists.Any(aa => aa.Artist != null && aa.Artist.Name.ToLower().Contains(searchTerm)) ||
+                           a.AlbumGenres.Any(ag => ag.Genre != null && ag.Genre.Name.ToLower().Contains(searchTerm)))
                 .OrderBy(a => a.Title.Length)
                 .ThenBy(a => a.Title)
                 .Take(limit)
-                .Select(a => new AlbumResult
+                .ToListAsync();
+
+            albums = albumsList.Select(a =>
+            {
+                // Build ordered artist list: primary artist first, then others alphabetically
+                var primaryArtist = a.AlbumArtists
+                    .FirstOrDefault(aa => aa.ArtistId == a.ArtistId && aa.Artist != null)
+                    ?.Artist;
+
+                // If primary artist not found in many-to-many collection but exists in single-value field, use it
+                if (primaryArtist == null && !string.IsNullOrEmpty(a.ArtistId) && a.Artist != null)
+                {
+                    primaryArtist = a.Artist;
+                }
+
+                var otherArtists = a.AlbumArtists
+                    .Where(aa => aa.Artist != null && aa.ArtistId != a.ArtistId)
+                    .Select(aa => aa.Artist!)
+                    .Distinct()
+                    .OrderBy(ar => ar.Name)
+                    .ToList();
+
+                var allArtists = primaryArtist != null
+                    ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                    : otherArtists;
+
+                // Fallback to single-value artist if no many-to-many data
+                if (!allArtists.Any() && !string.IsNullOrEmpty(a.ArtistId))
+                {
+                    if (a.Artist != null)
+                    {
+                        allArtists = new List<Artist> { a.Artist };
+                    }
+                }
+
+                var artistIds = allArtists.Select(ar => ar.Id).ToArray();
+                var artistNames = allArtists.Select(ar => ar.Name).ToArray();
+
+                // Build genre list: primary genre first (matching single-value Genre), then others alphabetically
+                var primaryGenre = a.AlbumGenres
+                    .FirstOrDefault(ag => ag.Genre != null && ag.Genre.Name == a.Genre)
+                    ?.Genre;
+                var otherGenres = a.AlbumGenres
+                    .Where(ag => ag.Genre != null && ag.Genre.Name != a.Genre)
+                    .Select(ag => ag.Genre!)
+                    .Distinct()
+                    .OrderBy(g => g.Name)
+                    .ToList();
+
+                var allGenres = primaryGenre != null
+                    ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+                    : otherGenres;
+
+                // Fallback to single-value genre if no many-to-many data
+                string[] genres;
+                if (!allGenres.Any() && !string.IsNullOrEmpty(a.Genre))
+                {
+                    // No many-to-many data, use single-value string
+                    genres = new[] { a.Genre };
+                }
+                else
+                {
+                    genres = allGenres.Select(g => g.Name).ToArray();
+                }
+
+                return new AlbumResult
                 {
                     Id = a.Id,
                     Title = a.Title,
                     ArtistId = a.ArtistId,
-                    ArtistName = a.Artist.Name,
+                    ArtistName = a.Artist?.Name ?? string.Empty,
+                    ArtistIds = artistIds,
+                    ArtistNames = artistNames,
+                    Genres = genres,
                     Year = a.Year ?? a.ReleaseYear,
                     CoverArtPath = a.CoverArtPath,
                     TrackCount = DbContext.Tracks.Count(t => t.AlbumId == a.Id)
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
             // Search tracks
-            tracks = await DbContext.Tracks
+            var tracksList = await DbContext.Tracks
                 .Include(t => t.Artist)
                 .Include(t => t.Album)
-                .Where(t => t.Title.ToLower().Contains(searchTerm))
+                .Include(t => t.TrackArtists).ThenInclude(ta => ta.Artist)
+                .Include(t => t.TrackGenres).ThenInclude(tg => tg.Genre)
+                .Where(t => t.Title.ToLower().Contains(searchTerm) ||
+                           (t.Artist != null && t.Artist.Name.ToLower().Contains(searchTerm)) ||
+                           (t.Genre != null && t.Genre.ToLower().Contains(searchTerm)) ||
+                           t.TrackArtists.Any(ta => ta.Artist != null && ta.Artist.Name.ToLower().Contains(searchTerm)) ||
+                           t.TrackGenres.Any(tg => tg.Genre != null && tg.Genre.Name.ToLower().Contains(searchTerm)))
                 .OrderBy(t => t.Title.Length)
                 .ThenBy(t => t.Title)
                 .Take(limit)
-                .Select(t => new TrackResult
+                .ToListAsync();
+
+            tracks = tracksList.Select(t =>
+            {
+                // Build ordered artist list: primary artist first, then others alphabetically
+                var primaryArtist = t.TrackArtists
+                    .FirstOrDefault(ta => ta.ArtistId == t.ArtistId && ta.Artist != null)
+                    ?.Artist;
+
+                // If primary artist not found in many-to-many collection but exists in single-value field, use it
+                if (primaryArtist == null && !string.IsNullOrEmpty(t.ArtistId) && t.Artist != null)
+                {
+                    primaryArtist = t.Artist;
+                }
+
+                var otherArtists = t.TrackArtists
+                    .Where(ta => ta.Artist != null && ta.ArtistId != t.ArtistId)
+                    .Select(ta => ta.Artist!)
+                    .Distinct()
+                    .OrderBy(ar => ar.Name)
+                    .ToList();
+
+                var allArtists = primaryArtist != null
+                    ? new[] { primaryArtist }.Concat(otherArtists).ToList()
+                    : otherArtists;
+
+                // Fallback to single-value artist if no many-to-many data
+                if (!allArtists.Any() && !string.IsNullOrEmpty(t.ArtistId))
+                {
+                    if (t.Artist != null)
+                    {
+                        allArtists = new List<Artist> { t.Artist };
+                    }
+                }
+
+                var artistIds = allArtists.Select(ar => ar.Id).ToArray();
+                var artistNames = allArtists.Select(ar => ar.Name).ToArray();
+
+                // Build genre list: primary genre first (matching single-value Genre), then others alphabetically
+                var primaryGenre = t.TrackGenres
+                    .FirstOrDefault(tg => tg.Genre != null && tg.Genre.Name == t.Genre)
+                    ?.Genre;
+                var otherGenres = t.TrackGenres
+                    .Where(tg => tg.Genre != null && tg.Genre.Name != t.Genre)
+                    .Select(tg => tg.Genre!)
+                    .Distinct()
+                    .OrderBy(g => g.Name)
+                    .ToList();
+
+                var allGenres = primaryGenre != null
+                    ? new[] { primaryGenre }.Concat(otherGenres).ToList()
+                    : otherGenres;
+
+                // Fallback to single-value genre if no many-to-many data
+                string[] genres;
+                if (!allGenres.Any() && !string.IsNullOrEmpty(t.Genre))
+                {
+                    // No many-to-many data, use single-value string
+                    genres = new[] { t.Genre };
+                }
+                else
+                {
+                    genres = allGenres.Select(g => g.Name).ToArray();
+                }
+
+                return new TrackResult
                 {
                     Id = t.Id,
                     Title = t.Title,
                     ArtistId = t.ArtistId,
-                    ArtistName = t.Artist.Name,
+                    ArtistName = t.Artist != null ? t.Artist.Name : string.Empty,
+                    ArtistIds = artistIds,
+                    ArtistNames = artistNames,
+                    Genres = genres,
                     AlbumId = t.AlbumId,
                     AlbumTitle = t.Album != null ? t.Album.Title : null,
                     DurationMs = t.DurationMs,
                     TrackNumber = t.TrackNumber,
                     DiscNumber = t.DiscNumber
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
             totalResults = artists.Count + albums.Count + tracks.Count;
             hasResults = totalResults > 0;
